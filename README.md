@@ -144,19 +144,19 @@
 
 ```mermaid
 graph TD
-    PM[ha_permission_manager<br/>v1.0.2] --> HA[Home Assistant Core]
-    AC[ha_area_control<br/>v1.0.3] --> PM
+    PM["ha_permission_manager\nv1.0.2"] --> HA["Home Assistant Core"]
+    AC["ha_area_control\nv1.0.3"] --> PM
     AC --> HA
-    LC[ha_label_control<br/>v2.0.0] --> PM
+    LC["ha_label_control\nv2.0.0"] --> PM
     LC --> HA
 
-    PM --> |WebSocket API| WS[8 WS Commands]
-    PM --> |Storage| ST[.storage/ha_permission_manager]
-    PM --> |Events| EB[Event Bus: permission_manager_updated]
+    PM -->|WebSocket API| WS["8 WS Commands"]
+    PM -->|Storage| ST[".storage/ha_permission_manager"]
+    PM -->|Events| EB["Event Bus: permission_manager_updated"]
 
-    AC --> |Panel| AP[/area-control]
-    LC --> |Panel| LP[/label-control]
-    PM --> |Panel| PP[/ha_permission_manager]
+    AC -->|Panel| AP["/area-control"]
+    LC -->|Panel| LP["/label-control"]
+    PM -->|Panel| PP["/ha_permission_manager"]
 
     style PM fill:#1976d2,color:#fff
     style AC fill:#388e3c,color:#fff
@@ -172,7 +172,7 @@ sequenceDiagram
     participant PM as Permission Manager
     participant Store as .storage
     participant EB as Event Bus
-    participant FE as Frontend (Sidebar/Lovelace)
+    participant FE as Frontend
     participant User
 
     Admin->>PM: set_permission(user_id, resource_id, level)
@@ -206,8 +206,8 @@ graph LR
         R2[get_labels]
     end
 
-    A1 --> |Admin Only| WS[WebSocket Handler]
-    A2 --> |Admin Only| WS
+    A1 -->|Admin Only| WS[WebSocket Handler]
+    A2 -->|Admin Only| WS
     U1 --> WS
     U2 --> WS
     U3 --> WS
@@ -215,8 +215,8 @@ graph LR
     R1 --> WS
     R2 --> WS
 
-    WS --> |Read/Write| STORE[(Storage)]
-    WS --> |Fire| EVENT[Event Bus]
+    WS -->|Read/Write| STORE[(Storage)]
+    WS -->|Fire| EVENT[Event Bus]
 ```
 
 ### Frontend Component Architecture
@@ -224,19 +224,19 @@ graph LR
 ```mermaid
 graph TD
     subgraph "ha_permission_manager Frontend"
-        LIT[lit.js<br/>Lit 3.1.0 Bundle<br/>15.9KB] --> PM_JS[ha_permission_manager.js<br/>Admin Matrix UI<br/>32.1KB]
-        LIT --> SF[ha_sidebar_filter.js<br/>Sidebar Panel Filter<br/>22.1KB]
-        LIT --> LF[ha_lovelace_filter.js<br/>Dashboard Filter<br/>10.3KB]
-        LIT --> CP[ha_control_panel.js<br/>Unified Control Panel<br/>69.6KB]
-        LIT --> AD[ha_access_denied.js<br/>Access Denied Page<br/>10.3KB]
+        LIT["lit.js\nLit 3.1.0 Bundle\n15.9KB"] --> PM_JS["ha_permission_manager.js\nAdmin Matrix UI\n32.1KB"]
+        LIT --> SF["ha_sidebar_filter.js\nSidebar Panel Filter\n22.1KB"]
+        LIT --> LF["ha_lovelace_filter.js\nDashboard Filter\n10.3KB"]
+        LIT --> CP["ha_control_panel.js\nUnified Control Panel\n69.6KB"]
+        LIT --> AD["ha_access_denied.js\nAccess Denied Page\n10.3KB"]
     end
 
     subgraph "ha_area_control Frontend"
-        LIT2[lit.js<br/>15.9KB] --> AC_JS[ha-area-control-panel.js<br/>62.7KB]
+        LIT2["lit.js\n15.9KB"] --> AC_JS["ha-area-control-panel.js\n62.7KB"]
     end
 
     subgraph "ha_label_control Frontend"
-        LIT3[lit.js<br/>15.9KB] --> LC_JS[ha-label-control-panel.js<br/>47.4KB]
+        LIT3["lit.js\n15.9KB"] --> LC_JS["ha-label-control-panel.js\n47.4KB"]
     end
 
     style LIT fill:#e1bee7

@@ -143,19 +143,19 @@
 
 ```mermaid
 graph TD
-    PM[ha_permission_manager<br/>v1.0.2] --> HA[Home Assistant Core]
-    AC[ha_area_control<br/>v1.0.3] --> PM
+    PM["ha_permission_manager\nv1.0.2"] --> HA["Home Assistant Core"]
+    AC["ha_area_control\nv1.0.3"] --> PM
     AC --> HA
-    LC[ha_label_control<br/>v2.0.0] --> PM
+    LC["ha_label_control\nv2.0.0"] --> PM
     LC --> HA
 
-    PM --> |WebSocket API| WS[8 個 WS 命令]
-    PM --> |儲存| ST[.storage/ha_permission_manager]
-    PM --> |事件| EB[事件匯流排: permission_manager_updated]
+    PM -->|WebSocket API| WS["8 個 WS 命令"]
+    PM -->|儲存| ST[".storage/ha_permission_manager"]
+    PM -->|事件| EB["事件匯流排: permission_manager_updated"]
 
-    AC --> |面板| AP[/area-control]
-    LC --> |面板| LP[/label-control]
-    PM --> |面板| PP[/ha_permission_manager]
+    AC -->|面板| AP["/area-control"]
+    LC -->|面板| LP["/label-control"]
+    PM -->|面板| PP["/ha_permission_manager"]
 
     style PM fill:#1976d2,color:#fff
     style AC fill:#388e3c,color:#fff
@@ -171,7 +171,7 @@ sequenceDiagram
     participant PM as 權限管理器
     participant Store as .storage
     participant EB as 事件匯流排
-    participant FE as 前端（側邊欄/Lovelace）
+    participant FE as Frontend
     participant 使用者 as User
 
     管理員->>PM: set_permission(user_id, resource_id, level)
@@ -205,8 +205,8 @@ graph LR
         R2[get_labels]
     end
 
-    A1 --> |僅限管理員| WS[WebSocket Handler]
-    A2 --> |僅限管理員| WS
+    A1 -->|僅限管理員| WS[WebSocket Handler]
+    A2 -->|僅限管理員| WS
     U1 --> WS
     U2 --> WS
     U3 --> WS
@@ -214,8 +214,8 @@ graph LR
     R1 --> WS
     R2 --> WS
 
-    WS --> |讀取/寫入| STORE[(儲存)]
-    WS --> |觸發| EVENT[事件匯流排]
+    WS -->|讀取/寫入| STORE[(儲存)]
+    WS -->|觸發| EVENT[事件匯流排]
 ```
 
 ### 前端元件架構
@@ -223,19 +223,19 @@ graph LR
 ```mermaid
 graph TD
     subgraph "ha_permission_manager 前端"
-        LIT[lit.js<br/>Lit 3.1.0 Bundle<br/>15.9KB] --> PM_JS[ha_permission_manager.js<br/>管理矩陣 UI<br/>32.1KB]
-        LIT --> SF[ha_sidebar_filter.js<br/>側邊欄篩選器<br/>22.1KB]
-        LIT --> LF[ha_lovelace_filter.js<br/>儀表板篩選器<br/>10.3KB]
-        LIT --> CP[ha_control_panel.js<br/>統一控制面板<br/>69.6KB]
-        LIT --> AD[ha_access_denied.js<br/>存取拒絕頁面<br/>10.3KB]
+        LIT["lit.js\nLit 3.1.0 Bundle\n15.9KB"] --> PM_JS["ha_permission_manager.js\n管理矩陣 UI\n32.1KB"]
+        LIT --> SF["ha_sidebar_filter.js\n側邊欄篩選器\n22.1KB"]
+        LIT --> LF["ha_lovelace_filter.js\n儀表板篩選器\n10.3KB"]
+        LIT --> CP["ha_control_panel.js\n統一控制面板\n69.6KB"]
+        LIT --> AD["ha_access_denied.js\n存取拒絕頁面\n10.3KB"]
     end
 
     subgraph "ha_area_control 前端"
-        LIT2[lit.js<br/>15.9KB] --> AC_JS[ha-area-control-panel.js<br/>62.7KB]
+        LIT2["lit.js\n15.9KB"] --> AC_JS["ha-area-control-panel.js\n62.7KB"]
     end
 
     subgraph "ha_label_control 前端"
-        LIT3[lit.js<br/>15.9KB] --> LC_JS[ha-label-control-panel.js<br/>47.4KB]
+        LIT3["lit.js\n15.9KB"] --> LC_JS["ha-label-control-panel.js\n47.4KB"]
     end
 
     style LIT fill:#e1bee7

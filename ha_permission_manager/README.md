@@ -225,20 +225,20 @@ The integration provides **8 WebSocket commands**:
 
 ```mermaid
 graph TD
-    PM[ha_permission_manager<br/>Core Engine] --> WS[8 WebSocket Commands]
-    PM --> ST[.storage/ha_permission_manager<br/>JSON Persistence]
-    PM --> EB[Event Bus<br/>permission_manager_updated]
-    PM --> FE[Frontend 6 JS Modules]
+    PM["ha_permission_manager\nCore Engine"] --> WS["8 WebSocket Commands"]
+    PM --> ST[".storage/ha_permission_manager\nJSON Persistence"]
+    PM --> EB["Event Bus\npermission_manager_updated"]
+    PM --> FE["Frontend 6 JS Modules"]
 
-    FE --> PM_JS[ha_permission_manager.js<br/>Admin Matrix UI — 32KB]
-    FE --> SF[ha_sidebar_filter.js<br/>Sidebar Filter — 22KB]
-    FE --> LF[ha_lovelace_filter.js<br/>Dashboard Filter — 10KB]
-    FE --> CP[ha_control_panel.js<br/>Control Panel — 70KB]
-    FE --> AD[ha_access_denied.js<br/>Access Denied — 10KB]
-    FE --> LIT[lit.js<br/>Lit 3.1.0 Bundle — 16KB]
+    FE --> PM_JS["ha_permission_manager.js\nAdmin Matrix UI — 32KB"]
+    FE --> SF["ha_sidebar_filter.js\nSidebar Filter — 22KB"]
+    FE --> LF["ha_lovelace_filter.js\nDashboard Filter — 10KB"]
+    FE --> CP["ha_control_panel.js\nControl Panel — 70KB"]
+    FE --> AD["ha_access_denied.js\nAccess Denied — 10KB"]
+    FE --> LIT["lit.js\nLit 3.1.0 Bundle — 16KB"]
 
-    AC[ha_area_control] -.->|depends on| PM
-    LC[ha_label_control] -.->|depends on| PM
+    AC["ha_area_control"] -.->|depends on| PM
+    LC["ha_label_control"] -.->|depends on| PM
 
     style PM fill:#1976d2,color:#fff
     style AC fill:#388e3c,color:#fff

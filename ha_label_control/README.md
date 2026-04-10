@@ -189,16 +189,16 @@ The integration exposes two WebSocket commands:
 
 ```mermaid
 graph TD
-    LC[ha_label_control<br/>v2.0.0] --> PM[ha_permission_manager<br/>optional dependency]
-    LC --> HA[Home Assistant Core]
-    LC --> FE[Frontend]
+    LC["ha_label_control\nv2.0.0"] --> PM["ha_permission_manager\noptional dependency"]
+    LC --> HA["Home Assistant Core"]
+    LC --> FE["Frontend"]
 
-    FE --> LIT[lit.js<br/>Lit 3.1.0 — 15.9KB]
-    FE --> PANEL[ha-label-control-panel.js<br/>47.4KB]
+    FE --> LIT["lit.js\nLit 3.1.0 — 15.9KB"]
+    FE --> PANEL["ha-label-control-panel.js\n47.4KB"]
 
-    PANEL --> HV[Home View<br/>Domain Summary + Label Grid]
-    PANEL --> DV[Domain View<br/>Cross-label Domain Entities]
-    PANEL --> LV[Label View<br/>Domain Groups + Entity Tiles]
+    PANEL --> HV["Home View\nDomain Summary + Label Grid"]
+    PANEL --> DV["Domain View\nCross-label Domain Entities"]
+    PANEL --> LV["Label View\nDomain Groups + Entity Tiles"]
 
     style LC fill:#7b1fa2,color:#fff
     style PM fill:#1976d2,color:#fff

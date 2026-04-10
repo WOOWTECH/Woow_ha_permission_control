@@ -187,16 +187,16 @@ The integration exposes two WebSocket commands:
 
 ```mermaid
 graph TD
-    AC[ha_area_control<br/>v1.0.3] --> PM[ha_permission_manager<br/>optional dependency]
-    AC --> HA[Home Assistant Core]
-    AC --> FE[Frontend]
+    AC["ha_area_control\nv1.0.3"] --> PM["ha_permission_manager\noptional dependency"]
+    AC --> HA["Home Assistant Core"]
+    AC --> FE["Frontend"]
 
-    FE --> LIT[lit.js<br/>Lit 3.1.0 — 15.9KB]
-    FE --> PANEL[ha-area-control-panel.js<br/>62.7KB]
+    FE --> LIT["lit.js\nLit 3.1.0 — 15.9KB"]
+    FE --> PANEL["ha-area-control-panel.js\n62.7KB"]
 
-    PANEL --> HV[Home View<br/>Domain Summary + Area Grid]
-    PANEL --> DV[Domain View<br/>Cross-area Domain Entities]
-    PANEL --> AV[Area View<br/>Domain Tabs + Entity Tiles]
+    PANEL --> HV["Home View\nDomain Summary + Area Grid"]
+    PANEL --> DV["Domain View\nCross-area Domain Entities"]
+    PANEL --> AV["Area View\nDomain Tabs + Entity Tiles"]
 
     style AC fill:#388e3c,color:#fff
     style PM fill:#1976d2,color:#fff
