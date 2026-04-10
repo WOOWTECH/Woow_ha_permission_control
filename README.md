@@ -264,7 +264,7 @@ graph TD
 
 **Version:** 1.0.2 | **HACS:** Yes | **Depends:** Home Assistant Core
 
-[📁 View Full Documentation →](ha_permission_manager/) · [Standalone Repo](https://github.com/WOOWTECH/ha_permission_manager)
+[📁 View Full Documentation →](ha_permission_manager/)
 
 ### ha_area_control — Area-Based Entity Control
 
@@ -279,7 +279,7 @@ graph TD
 
 **Version:** 1.0.3 | **HACS:** Yes | **Depends:** ha_permission_manager (optional)
 
-[📁 View Full Documentation →](ha_area_control/) · [Standalone Repo](https://github.com/WOOWTECH/ha_area_control)
+[📁 View Full Documentation →](ha_area_control/)
 
 ### ha_label_control — Label-Based Entity Control
 
@@ -295,7 +295,7 @@ graph TD
 
 **Version:** 2.0.0 | **HACS:** Yes | **Depends:** ha_permission_manager (optional)
 
-[📁 View Full Documentation →](ha_label_control/) · [Standalone Repo](https://github.com/WOOWTECH/ha_label_control)
+[📁 View Full Documentation →](ha_label_control/)
 
 ---
 
@@ -395,13 +395,11 @@ Integration configuration page showing Area Control, Label Control, and Permissi
 
 1. Open HACS in your Home Assistant instance
 2. Go to **Integrations** → **Custom Repositories**
-3. Add the following repositories:
+3. Add the repository:
    ```
-   https://github.com/WOOWTECH/ha_permission_manager
-   https://github.com/WOOWTECH/ha_area_control
-   https://github.com/WOOWTECH/ha_label_control
+   https://github.com/WOOWTECH/Woow_ha_permission_control
    ```
-4. Install each integration from HACS
+4. Install the integrations from HACS
 5. Restart Home Assistant
 
 ### Option B: Manual Installation

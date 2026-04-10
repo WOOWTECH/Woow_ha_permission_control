@@ -263,7 +263,7 @@ graph TD
 
 **版本：** 1.0.2 | **HACS：** 是 | **依賴：** Home Assistant Core
 
-[📁 查看完整文件 →](ha_permission_manager/) · [獨立 Repo](https://github.com/WOOWTECH/ha_permission_manager)
+[📁 查看完整文件 →](ha_permission_manager/)
 
 ### ha_area_control — 區域式實體控制
 
@@ -278,7 +278,7 @@ graph TD
 
 **版本：** 1.0.3 | **HACS：** 是 | **依賴：** ha_permission_manager（選配）
 
-[📁 查看完整文件 →](ha_area_control/) · [獨立 Repo](https://github.com/WOOWTECH/ha_area_control)
+[📁 查看完整文件 →](ha_area_control/)
 
 ### ha_label_control — 標籤式實體控制
 
@@ -294,7 +294,7 @@ graph TD
 
 **版本：** 2.0.0 | **HACS：** 是 | **依賴：** ha_permission_manager（選配）
 
-[📁 查看完整文件 →](ha_label_control/) · [獨立 Repo](https://github.com/WOOWTECH/ha_label_control)
+[📁 查看完整文件 →](ha_label_control/)
 
 ---
 
@@ -394,13 +394,11 @@ graph TD
 
 1. 在 Home Assistant 中開啟 HACS
 2. 前往**整合** → **自訂倉庫**
-3. 新增以下倉庫：
+3. 新增倉庫：
    ```
-   https://github.com/WOOWTECH/ha_permission_manager
-   https://github.com/WOOWTECH/ha_area_control
-   https://github.com/WOOWTECH/ha_label_control
+   https://github.com/WOOWTECH/Woow_ha_permission_control
    ```
-4. 從 HACS 安裝每個整合
+4. 從 HACS 安裝整合
 5. 重啟 Home Assistant
 
 ### 方式 B：手動安裝

@@ -1,10 +1,10 @@
 # Home Assistant 標籤控制面板
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![GitHub Release](https://img.shields.io/github/v/release/WOOWTECH/ha_label_control)](https://github.com/WOOWTECH/ha_label_control/releases)
-[![License](https://img.shields.io/github/license/WOOWTECH/ha_label_control)](LICENSE)
+[![GitHub Release](https://img.shields.io/github/v/release/WOOWTECH/Woow_ha_permission_control)](https://github.com/WOOWTECH/Woow_ha_permission_control/releases)
+[![License](https://img.shields.io/github/license/WOOWTECH/Woow_ha_permission_control)](LICENSE)
 
-一個 Home Assistant 自定義組件，提供側邊欄面板來控制按標籤組織的實體。與 [Permission Manager](https://github.com/WOOWTECH/ha_permission_manager) 整合，僅顯示每個用戶有權限訪問的標籤。
+一個 Home Assistant 自定義組件，提供側邊欄面板來控制按標籤組織的實體。與 [Permission Manager](../ha_permission_manager/) 整合，僅顯示每個用戶有權限訪問的標籤。
 
 **當前版本：2.0.0**
 
@@ -32,7 +32,7 @@
 ## 系統需求
 
 - Home Assistant 2024.1.0 或更新版本
-- [Permission Manager](https://github.com/WOOWTECH/ha_permission_manager) 整合組件（依賴項）
+- [Permission Manager](../ha_permission_manager/) 整合組件（依賴項）
 
 ## 安裝方式
 
@@ -41,7 +41,7 @@
 1. 在 Home Assistant 中開啟 HACS
 2. 點擊右上角三個點
 3. 選擇「自定義存儲庫」
-4. 添加此存儲庫 URL：`https://github.com/WOOWTECH/ha_label_control`
+4. 添加此存儲庫 URL：`https://github.com/WOOWTECH/Woow_ha_permission_control`
 5. 選擇「Integration」作為類別
 6. 點擊「添加」
 7. 搜索「Label Control」並安裝
@@ -49,7 +49,7 @@
 
 ### 手動安裝
 
-1. 從 [releases 頁面](https://github.com/WOOWTECH/ha_label_control/releases) 下載最新版本
+1. 從 [releases 頁面](https://github.com/WOOWTECH/Woow_ha_permission_control/releases) 下載最新版本
 2. 將 `ha_label_control` 資料夾解壓到 `custom_components` 目錄
 3. 重啟 Home Assistant
 
@@ -177,7 +177,7 @@ ha_label_control/
 
 ## 問題回報
 
-如遇到問題或有功能建議，請 [開啟 Issue](https://github.com/WOOWTECH/ha_label_control/issues)。
+如遇到問題或有功能建議，請 [開啟 Issue](https://github.com/WOOWTECH/Woow_ha_permission_control/issues)。
 
 ## 開發者
 

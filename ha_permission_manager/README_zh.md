@@ -3,7 +3,7 @@
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.1.0%2B-41BDF5.svg)](https://www.home-assistant.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)](https://github.com/WOOWTECH/ha_permission_manager/releases)
+[![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)](https://github.com/WOOWTECH/Woow_ha_permission_control/releases)
 
 [English](README.md)
 
@@ -50,7 +50,7 @@
 
 1. 在 Home Assistant 中開啟 HACS
 2. 點選右上角的三點選單，選擇**自訂儲存庫**
-3. 新增 `https://github.com/WOOWTECH/ha_permission_manager` 作為**整合**類型
+3. 新增 `https://github.com/WOOWTECH/Woow_ha_permission_control` 作為**整合**類型
 4. 搜尋 **Permission Manager** 並點選**下載**
 5. 重新啟動 Home Assistant
 

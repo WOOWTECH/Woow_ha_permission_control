@@ -102,7 +102,7 @@ View label summaries with entity statistics:
 
 1. Open HACS in your Home Assistant instance
 2. Click the three-dot menu in the top right and select **Custom repositories**
-3. Add `https://github.com/WOOWTECH/ha_permission_manager` as an **Integration**
+3. Add `https://github.com/WOOWTECH/Woow_ha_permission_control` as an **Integration**
 4. Search for **Permission Manager** and click **Download**
 5. Restart Home Assistant
 
@@ -326,9 +326,9 @@ The sidebar filter script runs after page load. A brief loading overlay is shown
 
 | Package | Description | Link |
 |---------|-------------|------|
-| **ha_area_control** | Area-based entity control panel | [GitHub](https://github.com/WOOWTECH/ha_area_control) |
-| **ha_label_control** | Label-based entity control panel | [GitHub](https://github.com/WOOWTECH/ha_label_control) |
-| **Consolidated Suite** | All three packages + full docs | [GitHub](https://github.com/WOOWTECH/Woow_ha_permission_control) |
+| **ha_area_control** | Area-based entity control panel | [View](../ha_area_control/) |
+| **ha_label_control** | Label-based entity control panel | [View](../ha_label_control/) |
+| **Suite Root** | Full docs, screenshots & architecture | [View](../) |
 
 ---
 

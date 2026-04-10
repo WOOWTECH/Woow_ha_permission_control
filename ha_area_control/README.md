@@ -25,7 +25,7 @@
   <img src="https://img.shields.io/badge/Lit-3.1.0-purple" alt="Lit 3.1.0"/>
 </p>
 
-> **Part of the [HA Permission & Control Suite](https://github.com/WOOWTECH/Woow_ha_permission_control)** — works standalone or with [Permission Manager](https://github.com/WOOWTECH/ha_permission_manager) for per-user area filtering.
+> **Part of the [HA Permission & Control Suite](../)** — works standalone or with [Permission Manager](../ha_permission_manager/) for per-user area filtering.
 
 ---
 
@@ -106,7 +106,7 @@ The panel provides specialized tile controls for **16 domains**:
 ## Requirements
 
 - Home Assistant **2024.1.0** or newer
-- [Permission Manager](https://github.com/WOOWTECH/ha_permission_manager) integration (optional — works standalone)
+- [Permission Manager](../ha_permission_manager/) integration (optional — works standalone)
 
 ---
 
@@ -116,13 +116,13 @@ The panel provides specialized tile controls for **16 domains**:
 
 1. Open HACS in Home Assistant
 2. Click the three dots → **Custom repositories**
-3. Add `https://github.com/WOOWTECH/ha_area_control` as **Integration**
+3. Add `https://github.com/WOOWTECH/Woow_ha_permission_control` as **Integration**
 4. Search for "Area Control" and install
 5. Restart Home Assistant
 
 ### Manual Installation
 
-1. Download the latest release from the [releases page](https://github.com/WOOWTECH/ha_area_control/releases)
+1. Download the latest release from the [releases page](https://github.com/WOOWTECH/Woow_ha_permission_control/releases)
 2. Copy the contents to `custom_components/ha_area_control/` in your HA config directory
 3. Restart Home Assistant
 
@@ -265,9 +265,9 @@ ha_area_control/
 
 | Package | Description | Link |
 |---------|-------------|------|
-| **ha_permission_manager** | Core permission management | [GitHub](https://github.com/WOOWTECH/ha_permission_manager) |
-| **ha_label_control** | Label-based entity control panel | [GitHub](https://github.com/WOOWTECH/ha_label_control) |
-| **Consolidated Suite** | All three packages + full docs | [GitHub](https://github.com/WOOWTECH/Woow_ha_permission_control) |
+| **ha_permission_manager** | Core permission management | [View](../ha_permission_manager/) |
+| **ha_label_control** | Label-based entity control panel | [View](../ha_label_control/) |
+| **Suite Root** | Full docs, screenshots & architecture | [View](../) |
 
 ---
 
