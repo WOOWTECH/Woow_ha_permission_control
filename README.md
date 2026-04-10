@@ -264,6 +264,8 @@ graph TD
 
 **Version:** 1.0.2 | **HACS:** Yes | **Depends:** Home Assistant Core
 
+[📁 View Full Documentation →](ha_permission_manager/) · [Standalone Repo](https://github.com/WOOWTECH/ha_permission_manager)
+
 ### ha_area_control — Area-Based Entity Control
 
 > Browse and control entities organized by Home Assistant areas.
@@ -276,6 +278,8 @@ graph TD
 - i18n support (en, zh-Hant, zh-Hans)
 
 **Version:** 1.0.3 | **HACS:** Yes | **Depends:** ha_permission_manager (optional)
+
+[📁 View Full Documentation →](ha_area_control/) · [Standalone Repo](https://github.com/WOOWTECH/ha_area_control)
 
 ### ha_label_control — Label-Based Entity Control
 
@@ -290,6 +294,8 @@ graph TD
 - i18n support (en, zh-Hant, zh-Hans)
 
 **Version:** 2.0.0 | **HACS:** Yes | **Depends:** ha_permission_manager (optional)
+
+[📁 View Full Documentation →](ha_label_control/) · [Standalone Repo](https://github.com/WOOWTECH/ha_label_control)
 
 ---
 

@@ -263,6 +263,8 @@ graph TD
 
 **版本：** 1.0.2 | **HACS：** 是 | **依賴：** Home Assistant Core
 
+[📁 查看完整文件 →](ha_permission_manager/) · [獨立 Repo](https://github.com/WOOWTECH/ha_permission_manager)
+
 ### ha_area_control — 區域式實體控制
 
 > 依 Home Assistant 區域瀏覽和控制實體。
@@ -275,6 +277,8 @@ graph TD
 - i18n 支援（en, zh-Hant, zh-Hans）
 
 **版本：** 1.0.3 | **HACS：** 是 | **依賴：** ha_permission_manager（選配）
+
+[📁 查看完整文件 →](ha_area_control/) · [獨立 Repo](https://github.com/WOOWTECH/ha_area_control)
 
 ### ha_label_control — 標籤式實體控制
 
@@ -289,6 +293,8 @@ graph TD
 - i18n 支援（en, zh-Hant, zh-Hans）
 
 **版本：** 2.0.0 | **HACS：** 是 | **依賴：** ha_permission_manager（選配）
+
+[📁 查看完整文件 →](ha_label_control/) · [獨立 Repo](https://github.com/WOOWTECH/ha_label_control)
 
 ---
 
