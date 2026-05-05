@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from homeassistant.components.frontend import (
@@ -363,6 +364,14 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
                 ),
                 False,
             ),
+            # Sidebar title translation JS
+            StaticPathConfig(
+                "/local/ha_sidebar_title.js",
+                hass.config.path(
+                    "custom_components/ha_permission_manager/www/sidebar-title.js"
+                ),
+                False,
+            ),
         ])
     except RuntimeError:
         # Path already registered from previous load
@@ -410,6 +419,10 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
 
     # Register lovelace filter as extra JS (runs on every page)
     add_extra_js_url(hass, f"/local/ha_lovelace_filter.js?v={PANEL_VERSION}")
+
+    # Register sidebar title translation JS (runs on every page)
+    cache_buster = int(time.time())
+    add_extra_js_url(hass, f"/local/ha_sidebar_title.js?v={cache_buster}")
 
     _LOGGER.debug("Frontend panels registered")
 

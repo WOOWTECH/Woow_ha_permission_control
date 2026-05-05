@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 
 from homeassistant.components import frontend
+from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -86,6 +88,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         from .panel import async_register_websocket_commands
         await async_register_websocket_commands(hass)
+
+    # Register sidebar-title.js as extra JS (runs on every page for title translation)
+    cache_buster = int(time.time())
+    add_extra_js_url(hass, f"/ha_area_control/sidebar-title.js?v={cache_buster}")
 
     _LOGGER.info("ha_area_control setup complete")
     return True
