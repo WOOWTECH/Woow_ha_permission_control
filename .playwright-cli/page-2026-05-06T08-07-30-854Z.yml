@@ -1,0 +1,47 @@
+- generic [ref=e2]:
+  - img "Home Assistant" [ref=e4]
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - heading "Welcome home!" [level=1] [ref=e9]
+        - text: "Please select a user you want to log in as:"
+        - generic [ref=e14]:
+          - text: User
+          - generic [ref=e16]:
+            - radio "Admin" [checked] [ref=e19] [cursor=pointer]
+            - generic [ref=e24]: Admin
+          - generic [ref=e26]:
+            - radio "elmo" [ref=e29] [cursor=pointer]
+            - generic [ref=e33]: elmo
+        - generic [ref=e34]:
+          - generic [ref=e36]:
+            - generic [ref=e38] [cursor=pointer]:
+              - checkbox "Keep me logged in" [checked] [ref=e39]
+              - generic:
+                - img
+            - generic [ref=e41]: Keep me logged in
+          - link "Forgot password?" [ref=e42] [cursor=pointer]:
+            - /url: https://www.home-assistant.io/docs/locked_out/#forgot-password
+        - button "Log in" [ref=e45] [cursor=pointer]:
+          - generic [ref=e46]: Log in
+      - generic [ref=e47]:
+        - heading "Or log in with" [level=3] [ref=e48]:
+          - generic [ref=e49]: Or log in with
+        - list [ref=e51]:
+          - generic [ref=e52] [cursor=pointer]:
+            - generic [ref=e53]:
+              - generic: Home Assistant Local
+            - generic [ref=e55]:
+              - img
+    - generic [ref=e56]:
+      - button "English" [ref=e62] [cursor=pointer]:
+        - generic [ref=e63]: English
+        - generic:
+          - generic:
+            - img
+      - link "Help" [ref=e65] [cursor=pointer]:
+        - /url: https://www.home-assistant.io/docs/authentication/
+        - generic [ref=e66]: Help
+        - generic:
+          - generic:
+            - img
