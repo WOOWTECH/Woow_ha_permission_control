@@ -54,6 +54,24 @@ LABEL_PANEL_URL = "label-control"
 LABEL_PANEL_TITLE = "Label Control"
 LABEL_PANEL_ICON = "mdi:label"
 
+# Service names
+SERVICE_SET_PERMISSION = "set_permission"
+SERVICE_BULK_SET_PERMISSIONS = "bulk_set_permissions"
+SERVICE_REMOVE_USER_PERMISSIONS = "remove_user_permissions"
+SERVICE_REMOVE_RESOURCE_PERMISSIONS = "remove_resource_permissions"
+SERVICE_RESET_ALL_PERMISSIONS = "reset_all_permissions"
+SERVICE_GET_PERMISSIONS = "get_permissions"
+SERVICE_GET_USERS = "get_users"
+SERVICE_GET_RESOURCES = "get_resources"
+
+# Valid resource type filters
+RESOURCE_TYPES = ["panel", "area", "label"]
+RESOURCE_TYPE_PREFIX_MAP = {
+    "panel": PREFIX_PANEL,
+    "area": PREFIX_AREA,
+    "label": PREFIX_LABEL,
+}
+
 # WebSocket Commands
 WS_GET_PERMITTED_AREAS = "ha_permission_manager/get_permitted_areas"
 WS_GET_PERMITTED_LABELS = "ha_permission_manager/get_permitted_labels"

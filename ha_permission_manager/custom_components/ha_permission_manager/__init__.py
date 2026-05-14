@@ -35,6 +35,7 @@ from .const import (
     CONTROL_PANEL_TITLE_ZH,
     CONTROL_PANEL_ICON,
 )
+from .services import async_register_services, async_unregister_services
 from .websocket_api import async_register_websocket_api
 
 _LOGGER = logging.getLogger(__name__)
@@ -154,6 +155,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register WebSocket API
     async_register_websocket_api(hass)
 
+    # Register HA Services (call_service API)
+    await async_register_services(hass)
+
     # Register the sidebar panel
     await _async_register_panel(hass)
 
@@ -172,6 +176,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     domain_data = hass.data.get(DOMAIN, {})
     for unsub in domain_data.get("unsubscribe", []):
         unsub()
+
+    # Unregister services
+    async_unregister_services(hass)
 
     # Remove panels
     async_remove_panel(hass, PANEL_URL)

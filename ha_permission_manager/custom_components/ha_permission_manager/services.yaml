@@ -1,0 +1,193 @@
+# HA Permission Manager — Service Definitions
+# All services require admin authentication.
+# Query services (get_*) return data via SupportsResponse.
+
+set_permission:
+  name: "Set Permission / 設定權限"
+  description: >
+    Set the permission level for a specific user on a specific resource
+    (panel, area, or label). Level 0 = Closed (hidden), Level 1 = View (accessible).
+    設定某用戶對某資源（面板、區域或標籤）的權限等級。0=關閉（隱藏），1=可見（可訪問）。
+  fields:
+    user_id:
+      name: "User ID / 用戶 ID"
+      description: >
+        The Home Assistant user ID. Use get_users service to discover available user IDs.
+        Home Assistant 用戶 ID。可用 get_users 服務查詢可用的用戶 ID。
+      required: true
+      example: "a1b2c3d4e5f6"
+      selector:
+        text:
+    resource_id:
+      name: "Resource ID / 資源 ID"
+      description: >
+        Resource ID with prefix: panel_ for panels, area_ for areas, label_ for labels.
+        Use get_resources service to discover available resource IDs.
+        帶前綴的資源 ID：panel_ 代表面板，area_ 代表區域，label_ 代表標籤。
+        可用 get_resources 服務查詢可用的資源 ID。
+      required: true
+      example: "area_living_room"
+      selector:
+        text:
+    level:
+      name: "Permission Level / 權限等級"
+      description: >
+        0 = Closed (user cannot see this resource).
+        1 = View (user can see and interact with this resource).
+        0 = 關閉（用戶無法看到此資源）。1 = 可見（用戶可以看到並操作此資源）。
+      required: true
+      selector:
+        select:
+          options:
+            - label: "0 - Closed / 關閉"
+              value: 0
+            - label: "1 - View / 可見"
+              value: 1
+
+bulk_set_permissions:
+  name: "Bulk Set Permissions / 批量設定權限"
+  description: >
+    Set multiple permission entries in one call. Useful for onboarding new users
+    or configuring permissions for multiple resources at once. Max 500 entries per call.
+    一次設定多筆權限。適用於新用戶開權限或一次配置多個資源。每次最多 500 筆。
+  fields:
+    permissions:
+      name: "Permissions List / 權限列表"
+      description: >
+        List of permission entries. Each entry requires user_id, resource_id, and level.
+        權限條目列表。每個條目需要 user_id、resource_id 和 level。
+      required: true
+      example: '[{"user_id": "a1b2c3", "resource_id": "area_living_room", "level": 1}, {"user_id": "a1b2c3", "resource_id": "panel_lovelace", "level": 1}]'
+      selector:
+        object:
+
+remove_user_permissions:
+  name: "Remove User Permissions / 刪除用戶權限"
+  description: >
+    Delete all permissions for a specific user. Typically used when a user leaves
+    or needs to be reset. The user will lose access to all restricted resources.
+    刪除某用戶的所有權限。通常用於用戶離開或需要重置權限時。該用戶將失去所有受限資源的訪問權。
+  fields:
+    user_id:
+      name: "User ID / 用戶 ID"
+      description: >
+        The Home Assistant user ID whose permissions will be removed.
+        要刪除權限的 Home Assistant 用戶 ID。
+      required: true
+      example: "a1b2c3d4e5f6"
+      selector:
+        text:
+
+remove_resource_permissions:
+  name: "Remove Resource Permissions / 刪除資源權限"
+  description: >
+    Delete all permissions for a specific resource across all users.
+    Typically used when a resource (area, label, panel) is removed or renamed.
+    刪除某資源在所有用戶中的權限記錄。通常用於資源被移除或重命名時。
+  fields:
+    resource_id:
+      name: "Resource ID / 資源 ID"
+      description: >
+        The resource ID (with prefix) whose permissions will be removed from all users.
+        要從所有用戶中刪除權限的資源 ID（含前綴）。
+      required: true
+      example: "area_living_room"
+      selector:
+        text:
+
+reset_all_permissions:
+  name: "Reset All Permissions / 重置所有權限"
+  description: >
+    WARNING: Clears the entire permission table. All users will lose all configured
+    permissions. This action cannot be undone. Requires confirm=true as a safety lock.
+    警告：清空整個權限表。所有用戶將失去所有已配置的權限。此操作不可撤銷。
+    需要 confirm=true 作為安全鎖。
+  fields:
+    confirm:
+      name: "Confirm / 確認"
+      description: >
+        Must be set to true to proceed. This is a safety lock to prevent accidental resets.
+        必須設為 true 才能執行。這是防止誤操作的安全鎖。
+      required: true
+      selector:
+        boolean:
+
+get_permissions:
+  name: "Get Permissions / 查詢權限"
+  description: >
+    Query permissions with optional filters. Returns a JSON object with permission data.
+    All parameters are optional — omit all to get the complete permission table.
+    This service returns data (SupportsResponse).
+    查詢權限，支持可選過濾條件。返回 JSON 權限數據。
+    所有參數均為可選 — 全部省略則返回完整權限表。此服務返回數據。
+  fields:
+    user_id:
+      name: "User ID / 用戶 ID"
+      description: >
+        Optional. Filter permissions for a specific user.
+        可選。按用戶 ID 過濾。
+      required: false
+      example: "a1b2c3d4e5f6"
+      selector:
+        text:
+    resource_type:
+      name: "Resource Type / 資源類型"
+      description: >
+        Optional. Filter by resource type: panel, area, or label.
+        可選。按資源類型過濾：panel（面板）、area（區域）或 label（標籤）。
+      required: false
+      selector:
+        select:
+          options:
+            - label: "panel / 面板"
+              value: "panel"
+            - label: "area / 區域"
+              value: "area"
+            - label: "label / 標籤"
+              value: "label"
+    resource_id:
+      name: "Resource ID / 資源 ID"
+      description: >
+        Optional. Filter for a specific resource ID.
+        可選。按特定資源 ID 過濾。
+      required: false
+      example: "area_living_room"
+      selector:
+        text:
+
+get_users:
+  name: "Get Users / 查詢用戶"
+  description: >
+    Returns all manageable Home Assistant users (non-system users).
+    Includes user ID, display name, and admin status.
+    This service returns data (SupportsResponse).
+    返回所有可管理的 Home Assistant 用戶（非系統用戶）。
+    包含用戶 ID、顯示名稱和管理員狀態。此服務返回數據。
+
+get_resources:
+  name: "Get Resources / 查詢資源"
+  description: >
+    Returns all manageable resources (panels, areas, labels).
+    Optionally filter by resource type. Each resource includes its ID (with prefix),
+    display name, and type.
+    This service returns data (SupportsResponse).
+    返回所有可管理的資源（面板、區域、標籤）。可按資源類型過濾。
+    每個資源包含 ID（含前綴）、顯示名稱和類型。此服務返回數據。
+  fields:
+    type:
+      name: "Resource Type / 資源類型"
+      description: >
+        Optional. Filter by resource type: panel, area, or label.
+        Omit to return all resource types.
+        可選。按資源類型過濾：panel（面板）、area（區域）或 label（標籤）。
+        省略則返回所有類型。
+      required: false
+      selector:
+        select:
+          options:
+            - label: "panel / 面板"
+              value: "panel"
+            - label: "area / 區域"
+              value: "area"
+            - label: "label / 標籤"
+              value: "label"
