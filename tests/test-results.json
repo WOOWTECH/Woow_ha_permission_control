@@ -1,0 +1,313 @@
+{
+  "total": 51,
+  "passed": 51,
+  "failed": 0,
+  "results": [
+    {
+      "id": "A1",
+      "name": "get_users returns user list",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A2",
+      "name": "get_resources returns all types",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A3",
+      "name": "get_resources type=panel",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A4",
+      "name": "get_resources type=area",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A5",
+      "name": "get_resources type=label",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A6",
+      "name": "set_permission level=1",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A7",
+      "name": "set_permission level=0 override",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A8",
+      "name": "get_permissions no filter",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A9",
+      "name": "get_permissions user_id filter",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A10",
+      "name": "get_permissions resource_type filter",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A11",
+      "name": "get_permissions resource_id filter",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A12",
+      "name": "get_permissions combo filter",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A13",
+      "name": "bulk_set_permissions 3 entries",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A14",
+      "name": "remove_resource_permissions",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A15",
+      "name": "remove_user_permissions",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "A16",
+      "name": "reset_all_permissions",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B1",
+      "name": "set_permission non-existent user_id (valid format)",
+      "status": "PASS",
+      "detail": "HTTP 200"
+    },
+    {
+      "id": "B2",
+      "name": "set_permission non-existent resource_id (valid format)",
+      "status": "PASS",
+      "detail": "HTTP 200"
+    },
+    {
+      "id": "B3",
+      "name": "set_permission level boundary 0 and 1",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B4",
+      "name": "get_permissions on empty table",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B5",
+      "name": "get_permissions non-existent user_id",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B6",
+      "name": "get_permissions non-existent resource_id",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B7",
+      "name": "bulk_set_permissions 1 entry (min)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B8",
+      "name": "bulk_set duplicate entries (last wins)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B9",
+      "name": "remove_user_permissions non-existent (idempotent)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B10",
+      "name": "remove_resource_permissions non-existent (idempotent)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B11",
+      "name": "reset_all on empty table (idempotent)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B12",
+      "name": "rapid consecutive 10x set_permission",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B13",
+      "name": "get_resources all IDs have correct prefix",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B14",
+      "name": "get_users admin flag correctness",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B15",
+      "name": "bulk_set mixed types (panel+area+label)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B16",
+      "name": "set then immediate get (atomicity)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B17",
+      "name": "bulk_set then resource_type filter",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B18",
+      "name": "triple filter combination",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B19",
+      "name": "toggle permission 0\u21921\u21920",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "B20",
+      "name": "bulk_set with mixed users",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "C1",
+      "name": "set_permission missing user_id \u2192 400",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    },
+    {
+      "id": "C2",
+      "name": "set_permission missing resource_id \u2192 400",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    },
+    {
+      "id": "C3",
+      "name": "set_permission missing level \u2192 400",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    },
+    {
+      "id": "C4",
+      "name": "set_permission level=2 \u2192 400",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    },
+    {
+      "id": "C5",
+      "name": "set_permission level=-1 \u2192 400",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    },
+    {
+      "id": "C6",
+      "name": "set_permission no prefix \u2192 error",
+      "status": "PASS",
+      "detail": "HTTP 500"
+    },
+    {
+      "id": "C7",
+      "name": "set_permission special chars \u2192 error",
+      "status": "PASS",
+      "detail": "HTTP 500"
+    },
+    {
+      "id": "C8",
+      "name": "bulk_set empty array \u2192 400",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    },
+    {
+      "id": "C9",
+      "name": "bulk_set incomplete entry \u2192 400",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    },
+    {
+      "id": "C10",
+      "name": "reset_all confirm=false \u2192 400",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    },
+    {
+      "id": "C11",
+      "name": "reset_all no confirm \u2192 400",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    },
+    {
+      "id": "C12",
+      "name": "get_resources type=invalid \u2192 400",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    },
+    {
+      "id": "C13",
+      "name": "get_permissions resource_type=invalid \u2192 400",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    },
+    {
+      "id": "C14",
+      "name": "no auth header \u2192 401",
+      "status": "PASS",
+      "detail": "HTTP 401"
+    },
+    {
+      "id": "C15",
+      "name": "oversized user_id (300 chars) \u2192 400",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    }
+  ]
+}
