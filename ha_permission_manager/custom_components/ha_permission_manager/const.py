@@ -63,6 +63,12 @@ SERVICE_RESET_ALL_PERMISSIONS = "reset_all_permissions"
 SERVICE_GET_PERMISSIONS = "get_permissions"
 SERVICE_GET_USERS = "get_users"
 SERVICE_GET_RESOURCES = "get_resources"
+SERVICE_GET_PERMITTED_AREAS = "get_permitted_areas"
+SERVICE_GET_AREA_ENTITIES = "get_area_entities"
+SERVICE_GET_PERMITTED_LABELS = "get_permitted_labels"
+SERVICE_GET_LABEL_ENTITIES = "get_label_entities"
+SERVICE_GET_PANEL_PERMISSIONS = "get_panel_permissions"
+SERVICE_GET_ALL_PERMISSIONS = "get_all_permissions"
 
 # Valid resource type filters
 RESOURCE_TYPES = ["panel", "area", "label"]
