@@ -1,7 +1,7 @@
 {
   "domain": "ha_permission_manager",
   "name": "Permission Manager — 14 HA services for panel/area/label permission control. AI agents: use ha_list_services to discover all services.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "documentation": "https://github.com/WOOWTECH/ha_permission_manager",
   "issue_tracker": "https://github.com/WOOWTECH/ha_permission_manager/issues",
   "dependencies": ["frontend", "auth"],
