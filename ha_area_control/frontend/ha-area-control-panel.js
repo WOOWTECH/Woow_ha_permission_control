@@ -294,6 +294,7 @@ class BaseTile extends LitElement {
 
       .tile {
         background: var(--tile-bg, rgba(255, 255, 255, 0.05));
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: 12px;
         padding: 12px 16px;
         min-height: 56px;
@@ -1272,6 +1273,7 @@ class DomainSummary extends LitElement {
       hass: { type: Object },
       domain: { type: String },
       count: { type: Number },
+      entities: { type: Array },
     };
   }
 
@@ -1282,7 +1284,8 @@ class DomainSummary extends LitElement {
       }
 
       .summary-tile {
-        background: rgba(255, 255, 255, 0.05);
+        background: var(--card-background-color, rgba(255, 255, 255, 0.05));
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: 12px;
         padding: 16px;
         cursor: pointer;
@@ -1322,20 +1325,34 @@ class DomainSummary extends LitElement {
       }
 
       .summary-label {
-        font-size: 12px;
+        font-size: 14px;
+        font-weight: 500;
         color: var(--primary-text-color, #fff);
         text-align: center;
       }
 
-      .summary-count {
-        font-size: 11px;
+      .summary-state {
+        font-size: 12px;
         color: var(--secondary-text-color, rgba(255, 255, 255, 0.7));
       }
     `;
   }
 
+  get _totalCount() {
+    return this.entities ? this.entities.length : 0;
+  }
+
+  get _activeCount() {
+    if (!this.entities || !this.hass) return this.count || 0;
+    const ON_STATES = ["on", "playing", "open", "unlocked", "heat", "cool", "heat_cool", "auto", "cleaning", "returning", "home"];
+    return this.entities.filter(entityId => {
+      const state = this.hass.states?.[entityId];
+      return state && ON_STATES.includes(state.state);
+    }).length;
+  }
+
   get isActive() {
-    return this.count > 0;
+    return this._activeCount > 0;
   }
 
   handleClick() {
@@ -1352,6 +1369,8 @@ class DomainSummary extends LitElement {
     const icon = DOMAIN_ICONS[this.domain] || "mdi:help-circle";
     const label = _domainName(this.hass, this.domain);
     const theme = getThemePrimaryColor();
+    const totalCount = this._totalCount;
+    const activeCount = this._activeCount;
 
     return html`
       <div
@@ -1363,7 +1382,7 @@ class DomainSummary extends LitElement {
           <ha-icon icon=${icon}></ha-icon>
         </div>
         <div class="summary-label">${label}</div>
-        <div class="summary-count">${this.count} ${_t(this.hass, "on")}</div>
+        <div class="summary-state">${totalCount} ${_t(this.hass, "entities")} · ${activeCount} ${_t(this.hass, "on")}</div>
       </div>
     `;
   }
@@ -1380,6 +1399,7 @@ class AreaCard extends LitElement {
     return {
       hass: { type: Object },
       area: { type: Object },
+      areaEntities: { type: Object },
     };
   }
 
@@ -1390,9 +1410,14 @@ class AreaCard extends LitElement {
       }
 
       .area-card {
-        background: rgba(255, 255, 255, 0.05);
+        background: var(--card-background-color, rgba(255, 255, 255, 0.05));
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: 12px;
         padding: 16px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         cursor: pointer;
         transition: background 0.2s ease, transform 0.1s ease;
       }
@@ -1445,10 +1470,26 @@ class AreaCard extends LitElement {
     );
   }
 
+  get _activeCount() {
+    if (!this.areaEntities || !this.hass) return 0;
+    const ON_STATES = ["on", "playing", "open", "unlocked", "heat", "cool", "heat_cool", "auto", "cleaning", "returning", "home"];
+    let count = 0;
+    for (const entityIds of Object.values(this.areaEntities)) {
+      for (const entityId of entityIds) {
+        const state = this.hass.states?.[entityId];
+        if (state && ON_STATES.includes(state.state)) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
   render() {
     const icon = this.area.icon || "mdi:home";
     const name = this.area.name || this.area.id;
     const count = this.area.entity_count || 0;
+    const activeCount = this._activeCount;
     const theme = getThemePrimaryColor();
 
     return html`
@@ -1458,7 +1499,7 @@ class AreaCard extends LitElement {
           <ha-icon icon=${icon}></ha-icon>
         </div>
         <div class="area-name">${name}</div>
-        <div class="area-count">${count} ${_t(this.hass, "entities")}</div>
+        <div class="area-count">${count} ${_t(this.hass, "entities")} · ${activeCount} ${_t(this.hass, "on")}</div>
       </div>
     `;
   }
@@ -1608,7 +1649,7 @@ class HaAreaControlPanel extends LitElement {
 
       .summary-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(3, 1fr);
         gap: 8px;
       }
 
@@ -2000,9 +2041,26 @@ class HaAreaControlPanel extends LitElement {
     }
   }
 
+  _getDomainEntities() {
+    const domainEntities = {};
+    for (const domain of SUMMARY_DOMAINS) {
+      domainEntities[domain] = [];
+    }
+    for (const areaId of Object.keys(this._areaEntities)) {
+      const entities = this._areaEntities[areaId];
+      for (const [domain, entityIds] of Object.entries(entities)) {
+        if (!SUMMARY_DOMAINS.includes(domain)) continue;
+        if (!domainEntities[domain]) domainEntities[domain] = [];
+        domainEntities[domain].push(...entityIds);
+      }
+    }
+    return domainEntities;
+  }
+
   _renderHomeView() {
     // Area entities are now loaded in parallel during _loadAreas()
     const counts = this._getDomainCounts();
+    const domainEntities = this._getDomainEntities();
     const activeDomains = SUMMARY_DOMAINS.filter((d) => counts[d] > 0 || true);
 
     return html`
@@ -2015,6 +2073,7 @@ class HaAreaControlPanel extends LitElement {
                 .hass=${this.hass}
                 .domain=${domain}
                 .count=${counts[domain] || 0}
+                .entities=${domainEntities[domain] || []}
                 @domain-selected=${this._handleDomainSelected}
               ></domain-summary>
             `
@@ -2030,6 +2089,7 @@ class HaAreaControlPanel extends LitElement {
               <area-card
                 .hass=${this.hass}
                 .area=${area}
+                .areaEntities=${this._areaEntities[area.id] || {}}
                 @area-selected=${this._handleAreaSelected}
               ></area-card>
             `
