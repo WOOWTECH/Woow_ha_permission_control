@@ -7,31 +7,41 @@ const { LitElement, html, css } = await import(
 );
 
 // ============================================================================
-// DESIGN TOKENS - HA Native Style
+// DESIGN TOKENS - HA Native Style (Theme-Aware)
 // ============================================================================
 
-const DOMAIN_COLORS = {
-  light: "#FFB300",
-  switch: "#FFB300",
-  input_boolean: "#FFB300",
-  fan: "#009688",
-  climate: "#FF9800",
+// Functional colors that remain fixed (safety/status indicators)
+const FUNCTIONAL_COLORS = {
   climate_cool: "#2196F3",
-  cover: "#9C27B0",
+  climate_heat: "#FF9800",
   lock: "#4CAF50",
   lock_unlocked: "#F44336",
-  vacuum: "#009688",
-  media_player: "#673AB7",
-  humidifier: "#00BCD4",
-  automation: "#2196F3",
-  script: "#2196F3",
-  scene: "#E91E63",
-  sensor: "#607D8B",
-  binary_sensor: "#607D8B",
-  button: "#FF9800",
-  person: "#4CAF50",
-  person_away: "#9E9E9E",
 };
+
+/**
+ * Read the HA theme's --primary-color at runtime.
+ * Returns { hex, rgb } where rgb is "r, g, b" string for rgba() usage.
+ */
+function getThemePrimaryColor() {
+  try {
+    const root = document.documentElement;
+    const raw = getComputedStyle(root).getPropertyValue("--primary-color").trim();
+    if (raw) {
+      const match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(raw);
+      if (match) {
+        return {
+          hex: raw,
+          rgb: `${parseInt(match[1], 16)}, ${parseInt(match[2], 16)}, ${parseInt(match[3], 16)}`,
+        };
+      }
+      const rgbMatch = raw.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      if (rgbMatch) {
+        return { hex: raw, rgb: `${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]}` };
+      }
+    }
+  } catch (e) { /* fallback */ }
+  return { hex: "#03a9f4", rgb: "3, 169, 244" };
+}
 
 const DOMAIN_ICONS = {
   light: "mdi:lightbulb",
@@ -235,7 +245,7 @@ class EntityTile extends LitElement {
       }
 
       .tile.on {
-        background: var(--tile-color-bg, rgba(255, 179, 0, 0.2));
+        background: var(--tile-color-bg, rgba(3, 169, 244, 0.2));
       }
 
       .tile.unavailable {
@@ -262,8 +272,8 @@ class EntityTile extends LitElement {
       }
 
       .tile.on .tile-icon {
-        background: var(--tile-color-bg, rgba(255, 179, 0, 0.3));
-        color: var(--tile-color, #ffb300);
+        background: var(--tile-color-bg, rgba(3, 169, 244, 0.3));
+        color: var(--tile-color, var(--primary-color, #03a9f4));
       }
 
       .tile-icon ha-icon {
@@ -332,18 +342,21 @@ class EntityTile extends LitElement {
       }
     }
 
-    // Climate: use blue for cooling, orange for heating
+    // Climate: functional safety colors
     if (domain === "climate" && this.isOn) {
       const hvacAction = this.entity?.attributes?.hvac_action;
-      if (hvacAction === "cooling") return DOMAIN_COLORS.climate_cool;
+      if (hvacAction === "cooling") return FUNCTIONAL_COLORS.climate_cool;
+      if (hvacAction === "heating") return FUNCTIONAL_COLORS.climate_heat;
     }
 
-    // Lock: use green for locked, red for unlocked
+    // Lock: functional safety colors
     if (domain === "lock") {
-      return this.entity?.state === "locked" ? DOMAIN_COLORS.lock : DOMAIN_COLORS.lock_unlocked;
+      return this.entity?.state === "locked" ? FUNCTIONAL_COLORS.lock : FUNCTIONAL_COLORS.lock_unlocked;
     }
 
-    return DOMAIN_COLORS[domain] || "#9E9E9E";
+    // All other domains: use theme primary color
+    const theme = getThemePrimaryColor();
+    return theme.hex;
   }
 
   _hexToRgb(hex) {
@@ -445,7 +458,7 @@ class SummaryCard extends LitElement {
       }
 
       .summary-card.active {
-        background: var(--tile-color-bg, rgba(255, 179, 0, 0.15));
+        background: var(--tile-color-bg, rgba(3, 169, 244, 0.15));
       }
 
       .summary-icon {
@@ -461,8 +474,8 @@ class SummaryCard extends LitElement {
       }
 
       .summary-card.active .summary-icon {
-        background: var(--tile-color-bg, rgba(255, 179, 0, 0.3));
-        color: var(--tile-color, #ffb300);
+        background: var(--tile-color-bg, rgba(3, 169, 244, 0.3));
+        color: var(--tile-color, var(--primary-color, #03a9f4));
       }
 
       .summary-icon ha-icon {
@@ -535,13 +548,12 @@ class SummaryCard extends LitElement {
 
   render() {
     const icon = DOMAIN_ICONS[this.domain] || "mdi:help-circle";
-    const color = DOMAIN_COLORS[this.domain] || "#9E9E9E";
-    const colorRgb = this._hexToRgb(color);
+    const theme = getThemePrimaryColor();
 
     return html`
       <div
         class="summary-card ${this.isActive ? "active" : ""}"
-        style="--tile-color: ${color}; --tile-color-bg: rgba(${colorRgb}, 0.2);"
+        style="--tile-color: ${theme.hex}; --tile-color-bg: rgba(${theme.rgb}, 0.2);"
         @click=${this._handleClick}
       >
         <div class="summary-icon">
@@ -1576,15 +1588,15 @@ class HaLabelControlPanel extends LitElement {
 
   // Get color helper
   _hexToRgbPanel(hex) {
-    if (!hex) return "255, 179, 0";
+    if (!hex) return "3, 169, 244";
     if (hex.startsWith("rgb")) {
       const match = hex.match(/\d+/g);
-      return match ? match.slice(0, 3).join(", ") : "255, 179, 0";
+      return match ? match.slice(0, 3).join(", ") : "3, 169, 244";
     }
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result
       ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`
-      : "255, 179, 0";
+      : "3, 169, 244";
   }
 
   // Render search bar
@@ -1625,16 +1637,15 @@ class HaLabelControlPanel extends LitElement {
       0
     );
 
-    // "All" tab color - use default yellow/amber
-    const allColor = "#FFB300";
-    const allColorRgb = this._hexToRgbPanel(allColor);
+    // "All" tab color - use theme primary color
+    const allTheme = getThemePrimaryColor();
 
     return html`
       <div class="domain-tabs">
         <!-- All tab -->
         <button
           class="domain-tab ${this._selectedDomainTab === null ? "active" : ""}"
-          style="--tab-color: ${allColor}; --tab-color-bg: rgba(${allColorRgb}, 0.3);"
+          style="--tab-color: ${allTheme.hex}; --tab-color-bg: rgba(${allTheme.rgb}, 0.3);"
           @click=${() => this._handleDomainTabClick(null)}
         >
           <ha-icon icon="mdi:view-grid"></ha-icon>
@@ -1644,8 +1655,7 @@ class HaLabelControlPanel extends LitElement {
 
         <!-- Domain tabs -->
         ${domains.map((domain) => {
-          const color = DOMAIN_COLORS[domain] || "#9E9E9E";
-          const colorRgb = this._hexToRgbPanel(color);
+          const theme = getThemePrimaryColor();
           const icon = DOMAIN_ICONS[domain] || "mdi:help-circle";
           const count = filteredEntities[domain]?.length || 0;
           const name = this._getDomainLabel(domain);
@@ -1653,7 +1663,7 @@ class HaLabelControlPanel extends LitElement {
           return html`
             <button
               class="domain-tab ${this._selectedDomainTab === domain ? "active" : ""}"
-              style="--tab-color: ${color}; --tab-color-bg: rgba(${colorRgb}, 0.3);"
+              style="--tab-color: ${theme.hex}; --tab-color-bg: rgba(${theme.rgb}, 0.3);"
               @click=${() => this._handleDomainTabClick(domain)}
             >
               <ha-icon icon=${icon}></ha-icon>

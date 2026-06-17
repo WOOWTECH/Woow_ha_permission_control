@@ -8,45 +8,41 @@ const { LitElement, html, css } = await import(
 );
 
 // ============================================================================
-// DESIGN TOKENS - HA Native Style
+// DESIGN TOKENS - HA Native Style (Theme-Aware)
 // ============================================================================
 
-const DOMAIN_COLORS = {
-  light: "#FFB300",
-  switch: "#FFB300",
-  input_boolean: "#FFB300",
-  fan: "#009688",
-  climate: "#FF9800",
+// Functional colors that remain fixed (safety/status indicators)
+const FUNCTIONAL_COLORS = {
   climate_cool: "#2196F3",
-  cover: "#9C27B0",
+  climate_heat: "#FF9800",
   lock: "#4CAF50",
   lock_unlocked: "#F44336",
-  vacuum: "#009688",
-  media_player: "#673AB7",
-  humidifier: "#00BCD4",
-  automation: "#2196F3",
-  script: "#2196F3",
-  scene: "#E91E63",
-  sensor: "#607D8B",
-  binary_sensor: "#607D8B",
-  button: "#FF9800",
-  person: "#4CAF50",
-  person_away: "#9E9E9E",
-  camera: "#607D8B",
-  alarm_control_panel: "#F44336",
-  update: "#4CAF50",
-  weather: "#03A9F4",
-  input_number: "#9C27B0",
-  input_select: "#9C27B0",
-  input_text: "#9C27B0",
-  number: "#9C27B0",
-  select: "#9C27B0",
-  text: "#9C27B0",
-  device_tracker: "#4CAF50",
-  calendar: "#FF9800",
-  todo: "#FF9800",
-  remote: "#673AB7",
 };
+
+/**
+ * Read the HA theme's --primary-color at runtime.
+ * Returns { hex, rgb } where rgb is "r, g, b" string for rgba() usage.
+ */
+function getThemePrimaryColor() {
+  try {
+    const root = document.documentElement;
+    const raw = getComputedStyle(root).getPropertyValue("--primary-color").trim();
+    if (raw) {
+      const match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(raw);
+      if (match) {
+        return {
+          hex: raw,
+          rgb: `${parseInt(match[1], 16)}, ${parseInt(match[2], 16)}, ${parseInt(match[3], 16)}`,
+        };
+      }
+      const rgbMatch = raw.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      if (rgbMatch) {
+        return { hex: raw, rgb: `${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]}` };
+      }
+    }
+  } catch (e) { /* fallback */ }
+  return { hex: "#03a9f4", rgb: "3, 169, 244" };
+}
 
 const DOMAIN_ICONS = {
   light: "mdi:lightbulb",
@@ -224,15 +220,15 @@ const LABEL_COLORS = {
 // ============================================================================
 
 function hexToRgb(hex) {
-  if (!hex) return "255, 179, 0";
+  if (!hex) return "3, 169, 244";
   if (hex.startsWith("rgb")) {
     const match = hex.match(/\d+/g);
-    return match ? match.slice(0, 3).join(", ") : "255, 179, 0";
+    return match ? match.slice(0, 3).join(", ") : "3, 169, 244";
   }
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
     ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`
-    : "255, 179, 0";
+    : "3, 169, 244";
 }
 
 function getLabelColor(color) {
@@ -286,7 +282,7 @@ class CpBaseTile extends LitElement {
       }
 
       .tile.on {
-        background: var(--tile-color-bg, rgba(255, 179, 0, 0.2));
+        background: var(--tile-color-bg, rgba(3, 169, 244, 0.2));
       }
 
       .tile.unavailable {
@@ -306,8 +302,8 @@ class CpBaseTile extends LitElement {
       }
 
       .tile.on .tile-icon {
-        background: var(--tile-color-bg, rgba(255, 179, 0, 0.3));
-        color: var(--tile-color, #ffb300);
+        background: var(--tile-color-bg, rgba(3, 169, 244, 0.3));
+        color: var(--tile-color, var(--primary-color, #03a9f4));
       }
 
       .tile-icon ha-icon {
@@ -382,20 +378,23 @@ class CpBaseTile extends LitElement {
       }
     }
 
-    // Climate: use blue for cooling, orange for heating
+    // Climate: functional safety colors
     if (domain === "climate" && this.isOn) {
       const hvacAction = this.entity?.attributes?.hvac_action;
-      if (hvacAction === "cooling") return DOMAIN_COLORS.climate_cool;
+      if (hvacAction === "cooling") return FUNCTIONAL_COLORS.climate_cool;
+      if (hvacAction === "heating") return FUNCTIONAL_COLORS.climate_heat;
     }
 
-    // Lock: use green for locked, red for unlocked
+    // Lock: functional safety colors
     if (domain === "lock") {
       return this.entity?.state === "locked"
-        ? DOMAIN_COLORS.lock
-        : DOMAIN_COLORS.lock_unlocked;
+        ? FUNCTIONAL_COLORS.lock
+        : FUNCTIONAL_COLORS.lock_unlocked;
     }
 
-    return DOMAIN_COLORS[domain] || "#9E9E9E";
+    // All other domains: use theme primary color
+    const theme = getThemePrimaryColor();
+    return theme.hex;
   }
 
   toggle() {
@@ -1161,7 +1160,7 @@ class CpSummaryCard extends LitElement {
       }
 
       .summary-card.active {
-        background: var(--tile-color-bg, rgba(255, 179, 0, 0.15));
+        background: var(--tile-color-bg, rgba(3, 169, 244, 0.15));
       }
 
       .summary-icon {
@@ -1177,8 +1176,8 @@ class CpSummaryCard extends LitElement {
       }
 
       .summary-card.active .summary-icon {
-        background: var(--tile-color-bg, rgba(255, 179, 0, 0.3));
-        color: var(--tile-color, #ffb300);
+        background: var(--tile-color-bg, rgba(3, 169, 244, 0.3));
+        color: var(--tile-color, var(--primary-color, #03a9f4));
       }
 
       .summary-icon ha-icon {
@@ -1246,13 +1245,12 @@ class CpSummaryCard extends LitElement {
 
   render() {
     const icon = DOMAIN_ICONS[this.domain] || "mdi:help-circle";
-    const color = DOMAIN_COLORS[this.domain] || "#9E9E9E";
-    const colorRgb = hexToRgb(color);
+    const theme = getThemePrimaryColor();
 
     return html`
       <div
         class="summary-card ${this.isActive ? "active" : ""}"
-        style="--tile-color: ${color}; --tile-color-bg: rgba(${colorRgb}, 0.2);"
+        style="--tile-color: ${theme.hex}; --tile-color-bg: rgba(${theme.rgb}, 0.2);"
         @click=${this._handleClick}
       >
         <div class="summary-icon">
@@ -1314,8 +1312,8 @@ class CpAreaCard extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(33, 150, 243, 0.2);
-        color: #2196f3;
+        background: var(--area-icon-bg, rgba(3, 169, 244, 0.2));
+        color: var(--area-icon-color, var(--primary-color, #03a9f4));
         margin-bottom: 12px;
       }
 
@@ -1375,9 +1373,11 @@ class CpAreaCard extends LitElement {
     const name = this.area.name || this.area.id;
     const total = this.area.entity_count || 0;
     const activeCount = this._getActiveCount();
+    const theme = getThemePrimaryColor();
 
     return html`
-      <div class="area-card" @click=${this.handleClick}>
+      <div class="area-card" @click=${this.handleClick}
+           style="--area-icon-bg: rgba(${theme.rgb}, 0.2); --area-icon-color: ${theme.hex};">
         <div class="area-icon">
           <ha-icon icon=${icon}></ha-icon>
         </div>
