@@ -88,7 +88,7 @@ def verify(identity, token, browser):
     for name, path, _desc in PAGES:
         url = HA_URL + path
         try:
-            page.goto(url, wait_until="networkidle", timeout=45000)
+            page.goto(url, wait_until="domcontentloaded", timeout=45000)
         except Exception as exc:
             findings.append((name, "NAVIGATION FAILED", str(exc)[:120]))
             continue
@@ -108,6 +108,42 @@ def verify(identity, token, browser):
             }"""
         )
         findings.append((name, "ok", f"{shot.name}; sidebar={items}"))
+
+        if name == "control-panel":
+            # The Areas tab is the default; the Labels tab is where the entity
+            # filtering shows up, so capture both.
+            try:
+                # activeTab is a plain reactive property with no URL route, and the
+                # panel sits several shadow roots deep, so walk them to find it.
+                switched = page.evaluate(
+                    """() => {
+                        const find = (root, depth) => {
+                            if (!root || depth > 12) return null;
+                            for (const el of root.querySelectorAll('*')) {
+                                if (el.tagName === 'HA-CONTROL-PANEL') return el;
+                                if (el.shadowRoot) {
+                                    const hit = find(el.shadowRoot, depth + 1);
+                                    if (hit) return hit;
+                                }
+                            }
+                            return null;
+                        };
+                        const panel = find(document, 0);
+                        if (!panel) return false;
+                        panel.activeTab = 'labels';
+                        panel.requestUpdate?.();
+                        return true;
+                    }"""
+                )
+                if not switched:
+                    findings.append(("control-panel-labels", "CAPTURE FAILED",
+                                     "ha-control-panel not reachable in the shadow tree"))
+                else:
+                    time.sleep(3)
+                    page.screenshot(path=str(out / "control-panel-labels.png"))
+                    findings.append(("control-panel-labels", "ok", "control-panel-labels.png"))
+            except Exception as exc:
+                findings.append(("control-panel-labels", "CAPTURE FAILED", str(exc)[:120]))
 
     context.close()
     return findings, console_errors
