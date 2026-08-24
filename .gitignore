@@ -21,3 +21,6 @@ Thumbs.db
 # Env
 .env
 *.log
+
+# local test credentials
+.ha_nonadmin_token
