@@ -9,9 +9,22 @@
 Usage:
   python3 tests/test_services_api.py
 
-Requires: HA running on localhost:15124 with admin/admin credentials.
+Defaults target a throwaway instance at localhost:15124 with admin/admin.
+Override with environment variables (a repo-root .env is read automatically):
+
+  HA_URL            target instance          (default http://localhost:15124)
+  HA_TOKEN          long-lived access token  (skips the username/password flow)
+  ADMIN_USER_ID     an admin user id
+  TEST_USER_ID      a NON-ADMIN user id the suite grants and revokes on
+  TEST_AREA_1/2/3   area resource ids that exist on the target
+  TEST_LABEL        a label resource id that exists on the target
+  ALLOW_DESTRUCTIVE=1   required for any non-localhost target
+
+WARNING: this suite calls reset_all_permissions between cases. Every permission
+on the target instance is erased. Back up .storage/ha_permission_manager first.
 """
 import json
+import os
 import sys
 import time
 import requests
@@ -20,14 +33,56 @@ from pathlib import Path
 # =============================================================================
 # Configuration
 # =============================================================================
-HA_URL = "http://localhost:15124"
-HA_USER = "admin"
-HA_PASS = "admin"
+def _load_dotenv():
+    """Read KEY=VALUE pairs from a .env at the repo root, without overriding real env."""
+    env_file = Path(__file__).resolve().parent.parent / ".env"
+    if not env_file.exists():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+_load_dotenv()
+
+# Target instance. Defaults keep the original throwaway-instance behaviour.
+HA_URL = os.environ.get("HA_URL", "http://localhost:15124").rstrip("/")
+HA_USER = os.environ.get("HA_USER", "admin")
+HA_PASS = os.environ.get("HA_PASS", "admin")
+# A long-lived access token skips the username/password login flow entirely.
+HA_TOKEN = os.environ.get("HA_TOKEN") or os.environ.get(
+    "HOMEASSISTANT-LONG-LIVED-ACCESS-TOKEN"
+)
 API = f"{HA_URL}/api/services/ha_permission_manager"
 
-# Known test users (from the HA test instance)
-ADMIN_USER_ID = "ae1e8434ff2642c3931f0185eedc976b"
-ELMO_USER_ID = "72f9eb5d8d0648c3801015d9dd723a32"
+# Users this suite acts on. TEST_USER_ID must be a non-admin.
+ADMIN_USER_ID = os.environ.get("ADMIN_USER_ID", "ae1e8434ff2642c3931f0185eedc976b")
+ELMO_USER_ID = os.environ.get("TEST_USER_ID", "72f9eb5d8d0648c3801015d9dd723a32")
+
+# Resources this suite acts on. Areas must exist on the target instance.
+AREA_1 = os.environ.get("TEST_AREA_1", "area_living_room")
+AREA_2 = os.environ.get("TEST_AREA_2", "area_kitchen")
+AREA_3 = os.environ.get("TEST_AREA_3", "area_bedroom")
+TEST_LABEL = os.environ.get("TEST_LABEL", "label_zi_dong_hua")
+
+
+def _guard_destructive_target():
+    """This suite calls reset_all_permissions. Never let that hit a real instance
+    by accident: anything that is not localhost needs an explicit opt-in."""
+    host = HA_URL.split("//", 1)[-1].split("/", 1)[0].split(":", 1)[0]
+    if host in ("localhost", "127.0.0.1", "::1"):
+        return
+    if os.environ.get("ALLOW_DESTRUCTIVE") == "1":
+        print(f"!! Running DESTRUCTIVE suite against {HA_URL} (ALLOW_DESTRUCTIVE=1)")
+        print("!! Every permission on that instance will be erased. Back it up first.")
+        return
+    sys.exit(
+        f"Refusing to run against {HA_URL}: this suite erases all permissions. "
+        f"Back up .storage/ha_permission_manager, then set ALLOW_DESTRUCTIVE=1."
+    )
 
 # =============================================================================
 # Test infrastructure
@@ -37,7 +92,10 @@ token = None
 
 
 def get_token():
-    """Obtain a short-lived access token via HA login flow."""
+    """Return HA_TOKEN if provided, else obtain one via the login flow."""
+    if HA_TOKEN:
+        return HA_TOKEN
+
     # Step 1: Initiate login flow
     flow = requests.post(
         f"{HA_URL}/auth/login_flow",
@@ -186,7 +244,7 @@ def run_group_a():
     # A6: set_permission level=1
     code, _ = call_write("set_permission", {
         "user_id": ELMO_USER_ID,
-        "resource_id": "area_living_room",
+        "resource_id": AREA_1,
         "level": 1,
     })
     passed = code == 200
@@ -195,20 +253,20 @@ def run_group_a():
     # A7: set_permission level=0 (override)
     code, _ = call_write("set_permission", {
         "user_id": ELMO_USER_ID,
-        "resource_id": "area_living_room",
+        "resource_id": AREA_1,
         "level": 0,
     })
     # Verify the override
-    _, resp = call_query("get_permissions", {"user_id": ELMO_USER_ID, "resource_id": "area_living_room"})
+    _, resp = call_query("get_permissions", {"user_id": ELMO_USER_ID, "resource_id": AREA_1})
     data = extract_service_response(resp)
     perms = data.get("permissions", {}) if data else {}
     user_perms = perms.get(ELMO_USER_ID, {})
-    passed = code == 200 and user_perms.get("area_living_room") == 0
+    passed = code == 200 and user_perms.get(AREA_1) == 0
     record("A7", "set_permission level=0 override", passed)
 
     # A8: get_permissions no filter (full table)
     # First set some data
-    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": "area_kitchen", "level": 1})
+    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": AREA_2, "level": 1})
     code, resp = call_query("get_permissions", {})
     data = extract_service_response(resp)
     perms = data.get("permissions", {}) if data else {}
@@ -236,13 +294,13 @@ def run_group_a():
     record("A10", "get_permissions resource_type filter", passed)
 
     # A11: get_permissions resource_id filter
-    code, resp = call_query("get_permissions", {"resource_id": "area_kitchen"})
+    code, resp = call_query("get_permissions", {"resource_id": AREA_2})
     data = extract_service_response(resp)
     perms = data.get("permissions", {}) if data else {}
     # Should only contain area_kitchen
     all_kitchen = True
     for uid, rmap in perms.items():
-        if list(rmap.keys()) != ["area_kitchen"]:
+        if list(rmap.keys()) != [AREA_2]:
             all_kitchen = False
     passed = code == 200 and all_kitchen and len(perms) > 0
     record("A11", "get_permissions resource_id filter", passed)
@@ -253,15 +311,15 @@ def run_group_a():
     data = extract_service_response(resp)
     perms = data.get("permissions", {}) if data else {}
     user_perms = perms.get(ELMO_USER_ID, {})
-    passed = code == 200 and "panel_lovelace" in user_perms and "area_kitchen" not in user_perms
+    passed = code == 200 and "panel_lovelace" in user_perms and AREA_2 not in user_perms
     record("A12", "get_permissions combo filter", passed)
 
     # A13: bulk_set_permissions
     reset()
     code, _ = call_write("bulk_set_permissions", {
         "permissions": [
-            {"user_id": ELMO_USER_ID, "resource_id": "area_living_room", "level": 1},
-            {"user_id": ELMO_USER_ID, "resource_id": "area_bedroom", "level": 1},
+            {"user_id": ELMO_USER_ID, "resource_id": AREA_1, "level": 1},
+            {"user_id": ELMO_USER_ID, "resource_id": AREA_3, "level": 1},
             {"user_id": ELMO_USER_ID, "resource_id": "panel_lovelace", "level": 0},
         ]
     })
@@ -269,17 +327,17 @@ def run_group_a():
     data = extract_service_response(resp)
     perms = data.get("permissions", {}).get(ELMO_USER_ID, {}) if data else {}
     passed = (code == 200
-              and perms.get("area_living_room") == 1
-              and perms.get("area_bedroom") == 1
+              and perms.get(AREA_1) == 1
+              and perms.get(AREA_3) == 1
               and perms.get("panel_lovelace") == 0)
     record("A13", "bulk_set_permissions 3 entries", passed)
 
     # A14: remove_resource_permissions
-    code, _ = call_write("remove_resource_permissions", {"resource_id": "area_bedroom"})
+    code, _ = call_write("remove_resource_permissions", {"resource_id": AREA_3})
     _, resp = call_query("get_permissions", {"user_id": ELMO_USER_ID})
     data = extract_service_response(resp)
     perms = data.get("permissions", {}).get(ELMO_USER_ID, {}) if data else {}
-    passed = code == 200 and "area_bedroom" not in perms and "area_living_room" in perms
+    passed = code == 200 and AREA_3 not in perms and AREA_1 in perms
     record("A14", "remove_resource_permissions", passed)
 
     # A15: remove_user_permissions
@@ -291,7 +349,7 @@ def run_group_a():
     record("A15", "remove_user_permissions", passed)
 
     # A16: reset_all_permissions
-    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": "area_kitchen", "level": 1})
+    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": AREA_2, "level": 1})
     code, _ = call_write("reset_all_permissions", {"confirm": True})
     _, resp = call_query("get_permissions", {})
     data = extract_service_response(resp)
@@ -310,7 +368,7 @@ def run_group_b():
     # B1: set_permission with non-existent user_id (valid format, should succeed)
     code, _ = call_write("set_permission", {
         "user_id": "nonexistent_user_12345",
-        "resource_id": "area_living_room",
+        "resource_id": AREA_1,
         "level": 1,
     })
     passed = code == 200
@@ -326,8 +384,8 @@ def run_group_b():
     record("B2", "set_permission non-existent resource_id (valid format)", passed, f"HTTP {code}")
 
     # B3: set_permission level boundary (0 and 1)
-    code0, _ = call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": "area_kitchen", "level": 0})
-    code1, _ = call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": "area_kitchen", "level": 1})
+    code0, _ = call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": AREA_2, "level": 0})
+    code1, _ = call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": AREA_2, "level": 1})
     passed = code0 == 200 and code1 == 200
     record("B3", "set_permission level boundary 0 and 1", passed)
 
@@ -348,7 +406,7 @@ def run_group_b():
     record("B5", "get_permissions non-existent user_id", passed)
 
     # B6: get_permissions non-existent resource_id (returns empty)
-    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": "area_living_room", "level": 1})
+    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": AREA_1, "level": 1})
     code, resp = call_query("get_permissions", {"resource_id": "area_nonexistent_xyz"})
     data = extract_service_response(resp)
     perms = data.get("permissions", {}) if data else {}
@@ -358,7 +416,7 @@ def run_group_b():
     # B7: bulk_set_permissions with only 1 entry (minimum)
     reset()
     code, _ = call_write("bulk_set_permissions", {
-        "permissions": [{"user_id": ELMO_USER_ID, "resource_id": "area_bedroom", "level": 1}]
+        "permissions": [{"user_id": ELMO_USER_ID, "resource_id": AREA_3, "level": 1}]
     })
     passed = code == 200
     record("B7", "bulk_set_permissions 1 entry (min)", passed)
@@ -367,14 +425,14 @@ def run_group_b():
     reset()
     code, _ = call_write("bulk_set_permissions", {
         "permissions": [
-            {"user_id": ELMO_USER_ID, "resource_id": "area_kitchen", "level": 0},
-            {"user_id": ELMO_USER_ID, "resource_id": "area_kitchen", "level": 1},
+            {"user_id": ELMO_USER_ID, "resource_id": AREA_2, "level": 0},
+            {"user_id": ELMO_USER_ID, "resource_id": AREA_2, "level": 1},
         ]
     })
-    _, resp = call_query("get_permissions", {"user_id": ELMO_USER_ID, "resource_id": "area_kitchen"})
+    _, resp = call_query("get_permissions", {"user_id": ELMO_USER_ID, "resource_id": AREA_2})
     data = extract_service_response(resp)
     perms = data.get("permissions", {}).get(ELMO_USER_ID, {}) if data else {}
-    passed = code == 200 and perms.get("area_kitchen") == 1
+    passed = code == 200 and perms.get(AREA_2) == 1
     record("B8", "bulk_set duplicate entries (last wins)", passed,
            f"got {perms.get('area_kitchen')}" if not passed else "")
 
@@ -442,8 +500,8 @@ def run_group_b():
     code, _ = call_write("bulk_set_permissions", {
         "permissions": [
             {"user_id": ELMO_USER_ID, "resource_id": "panel_lovelace", "level": 1},
-            {"user_id": ELMO_USER_ID, "resource_id": "area_living_room", "level": 1},
-            {"user_id": ELMO_USER_ID, "resource_id": "label_zi_dong_hua", "level": 0},
+            {"user_id": ELMO_USER_ID, "resource_id": AREA_1, "level": 1},
+            {"user_id": ELMO_USER_ID, "resource_id": TEST_LABEL, "level": 0},
         ]
     })
     _, resp = call_query("get_permissions", {"user_id": ELMO_USER_ID})
@@ -451,70 +509,70 @@ def run_group_b():
     perms = data.get("permissions", {}).get(ELMO_USER_ID, {}) if data else {}
     passed = (code == 200
               and perms.get("panel_lovelace") == 1
-              and perms.get("area_living_room") == 1
-              and perms.get("label_zi_dong_hua") == 0)
+              and perms.get(AREA_1) == 1
+              and perms.get(TEST_LABEL) == 0)
     record("B15", "bulk_set mixed types (panel+area+label)", passed)
 
     # B16: set_permission then immediate get (atomicity)
     reset()
-    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": "area_bedroom", "level": 1})
-    code, resp = call_query("get_permissions", {"user_id": ELMO_USER_ID, "resource_id": "area_bedroom"})
+    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": AREA_3, "level": 1})
+    code, resp = call_query("get_permissions", {"user_id": ELMO_USER_ID, "resource_id": AREA_3})
     data = extract_service_response(resp)
     perms = data.get("permissions", {}).get(ELMO_USER_ID, {}) if data else {}
-    passed = code == 200 and perms.get("area_bedroom") == 1
+    passed = code == 200 and perms.get(AREA_3) == 1
     record("B16", "set then immediate get (atomicity)", passed)
 
     # B17: bulk_set then resource_type filter
     reset()
     call_write("bulk_set_permissions", {
         "permissions": [
-            {"user_id": ELMO_USER_ID, "resource_id": "area_kitchen", "level": 1},
+            {"user_id": ELMO_USER_ID, "resource_id": AREA_2, "level": 1},
             {"user_id": ELMO_USER_ID, "resource_id": "panel_config", "level": 1},
-            {"user_id": ELMO_USER_ID, "resource_id": "label_zi_dong_hua", "level": 1},
+            {"user_id": ELMO_USER_ID, "resource_id": TEST_LABEL, "level": 1},
         ]
     })
     _, resp = call_query("get_permissions", {"user_id": ELMO_USER_ID, "resource_type": "label"})
     data = extract_service_response(resp)
     perms = data.get("permissions", {}).get(ELMO_USER_ID, {}) if data else {}
-    passed = list(perms.keys()) == ["label_zi_dong_hua"] and perms["label_zi_dong_hua"] == 1
+    passed = list(perms.keys()) == [TEST_LABEL] and perms[TEST_LABEL] == 1
     record("B17", "bulk_set then resource_type filter", passed)
 
     # B18: triple filter (user_id + resource_type + resource_id)
     code, resp = call_query("get_permissions", {
         "user_id": ELMO_USER_ID,
         "resource_type": "area",
-        "resource_id": "area_kitchen",
+        "resource_id": AREA_2,
     })
     data = extract_service_response(resp)
     perms = data.get("permissions", {}).get(ELMO_USER_ID, {}) if data else {}
-    passed = code == 200 and perms == {"area_kitchen": 1}
+    passed = code == 200 and perms == {AREA_2: 1}
     record("B18", "triple filter combination", passed)
 
     # B19: toggle permission 0→1→0
     reset()
-    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": "area_bedroom", "level": 0})
-    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": "area_bedroom", "level": 1})
-    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": "area_bedroom", "level": 0})
-    _, resp = call_query("get_permissions", {"user_id": ELMO_USER_ID, "resource_id": "area_bedroom"})
+    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": AREA_3, "level": 0})
+    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": AREA_3, "level": 1})
+    call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": AREA_3, "level": 0})
+    _, resp = call_query("get_permissions", {"user_id": ELMO_USER_ID, "resource_id": AREA_3})
     data = extract_service_response(resp)
     perms = data.get("permissions", {}).get(ELMO_USER_ID, {}) if data else {}
-    passed = perms.get("area_bedroom") == 0
+    passed = perms.get(AREA_3) == 0
     record("B19", "toggle permission 0→1→0", passed)
 
     # B20: bulk_set with mixed users
     reset()
     code, _ = call_write("bulk_set_permissions", {
         "permissions": [
-            {"user_id": ELMO_USER_ID, "resource_id": "area_living_room", "level": 1},
-            {"user_id": ADMIN_USER_ID, "resource_id": "area_living_room", "level": 1},
-            {"user_id": ELMO_USER_ID, "resource_id": "area_bedroom", "level": 0},
+            {"user_id": ELMO_USER_ID, "resource_id": AREA_1, "level": 1},
+            {"user_id": ADMIN_USER_ID, "resource_id": AREA_1, "level": 1},
+            {"user_id": ELMO_USER_ID, "resource_id": AREA_3, "level": 0},
         ]
     })
     _, resp = call_query("get_permissions", {})
     data = extract_service_response(resp)
     perms = data.get("permissions", {}) if data else {}
-    elmo_ok = perms.get(ELMO_USER_ID, {}).get("area_living_room") == 1
-    admin_ok = perms.get(ADMIN_USER_ID, {}).get("area_living_room") == 1
+    elmo_ok = perms.get(ELMO_USER_ID, {}).get(AREA_1) == 1
+    admin_ok = perms.get(ADMIN_USER_ID, {}).get(AREA_1) == 1
     passed = code == 200 and elmo_ok and admin_ok
     record("B20", "bulk_set with mixed users", passed)
 
@@ -527,7 +585,7 @@ def run_group_c():
     reset()
 
     # C1: set_permission missing user_id
-    code, _ = call_write("set_permission", {"resource_id": "area_living_room", "level": 1})
+    code, _ = call_write("set_permission", {"resource_id": AREA_1, "level": 1})
     passed = code == 400
     record("C1", "set_permission missing user_id → 400", passed, f"HTTP {code}")
 
@@ -537,20 +595,20 @@ def run_group_c():
     record("C2", "set_permission missing resource_id → 400", passed, f"HTTP {code}")
 
     # C3: set_permission missing level
-    code, _ = call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": "area_living_room"})
+    code, _ = call_write("set_permission", {"user_id": ELMO_USER_ID, "resource_id": AREA_1})
     passed = code == 400
     record("C3", "set_permission missing level → 400", passed, f"HTTP {code}")
 
     # C4: set_permission level=2 (out of range)
     code, _ = call_write("set_permission", {
-        "user_id": ELMO_USER_ID, "resource_id": "area_living_room", "level": 2
+        "user_id": ELMO_USER_ID, "resource_id": AREA_1, "level": 2
     })
     passed = code == 400
     record("C4", "set_permission level=2 → 400", passed, f"HTTP {code}")
 
     # C5: set_permission level=-1 (out of range)
     code, _ = call_write("set_permission", {
-        "user_id": ELMO_USER_ID, "resource_id": "area_living_room", "level": -1
+        "user_id": ELMO_USER_ID, "resource_id": AREA_1, "level": -1
     })
     passed = code == 400
     record("C5", "set_permission level=-1 → 400", passed, f"HTTP {code}")
@@ -576,7 +634,7 @@ def run_group_c():
 
     # C9: bulk_set_permissions incomplete entry (missing level)
     code, _ = call_write("bulk_set_permissions", {
-        "permissions": [{"user_id": ELMO_USER_ID, "resource_id": "area_living_room"}]
+        "permissions": [{"user_id": ELMO_USER_ID, "resource_id": AREA_1}]
     })
     passed = code == 400
     record("C9", "bulk_set incomplete entry → 400", passed, f"HTTP {code}")
@@ -603,7 +661,7 @@ def run_group_c():
 
     # C14: no Authorization header → 401
     code, _ = call_no_auth("set_permission", {
-        "user_id": ELMO_USER_ID, "resource_id": "area_living_room", "level": 1
+        "user_id": ELMO_USER_ID, "resource_id": AREA_1, "level": 1
     })
     passed = code == 401
     record("C14", "no auth header → 401", passed, f"HTTP {code}")
@@ -611,7 +669,7 @@ def run_group_c():
     # C15: oversized user_id (300 chars)
     long_id = "a" * 300
     code, _ = call_write("set_permission", {
-        "user_id": long_id, "resource_id": "area_living_room", "level": 1
+        "user_id": long_id, "resource_id": AREA_1, "level": 1
     })
     passed = code == 400
     record("C15", "oversized user_id (300 chars) → 400", passed, f"HTTP {code}")
@@ -627,6 +685,10 @@ def main():
     print("HA Permission Manager — Services API Test Suite")
     print("=" * 60)
     print(f"Target: {HA_URL}")
+    print(f"Test user: {ELMO_USER_ID}")
+    print(f"Areas: {AREA_1}, {AREA_2}, {AREA_3}")
+
+    _guard_destructive_target()
 
     # Get auth token
     print("\nAuthenticating...", end=" ")
