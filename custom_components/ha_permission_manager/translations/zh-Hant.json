@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "權限管理器",
+        "description": "這將為所有使用者與資源（區域、標籤、面板）建立權限選擇實體。\n\n您可以透過側邊欄面板或直接透過實體來管理權限。"
+      }
+    },
+    "abort": {
+      "already_configured": "權限管理器已設定。",
+      "single_instance_allowed": "已經設定完成，只能設定一次。"
+    }
+  },
+  "entity": {
+    "select": {
+      "permission": {
+        "state": {
+          "0": "關閉",
+          "1": "檢視"
+        }
+      }
+    }
+  }
+}
