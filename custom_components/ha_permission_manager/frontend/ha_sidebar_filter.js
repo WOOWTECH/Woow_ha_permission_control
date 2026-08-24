@@ -674,9 +674,23 @@
         if (!skipPanels.includes(currentPanel)) {
           const level = initPerms[currentPanel];
           if (level === undefined || level === PERM_DENY) {
+            // Only redirect somewhere this user may actually go. The default
+            // panel is very often denied too, and redirecting to a denied panel
+            // bounces straight back into this branch — an infinite replace()
+            // loop that leaves the user staring at a blank page, locked out of
+            // even the panels they DO have access to. When there is nowhere
+            // safe to send them, fall through: applySidebarFilter() and
+            // checkCurrentPanelAccess() then render the Access Denied page.
             const defaultPanel = hass?.defaultPanel || "lovelace";
-            window.location.replace("/" + defaultPanel);
-            return; // Stop init — page will reload on allowed panel
+            const defaultLevel = initPerms[defaultPanel];
+            const canRedirect =
+              defaultPanel !== currentPanel &&
+              defaultLevel !== undefined &&
+              defaultLevel > PERM_DENY;
+            if (canRedirect) {
+              window.location.replace("/" + defaultPanel);
+              return; // Stop init — page will reload on allowed panel
+            }
           }
         }
       }

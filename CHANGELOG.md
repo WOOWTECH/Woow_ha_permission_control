@@ -29,6 +29,17 @@ The three integrations in this repo are now one.
   domains being gone. Renaming them is a separate breaking change with its own
   deprecation window — see ADR-0004.
 
+### Fixed
+
+- **A user whose default panel was Closed was locked out of Home Assistant
+  entirely.** The sidebar filter redirected away from a denied panel to
+  `hass.defaultPanel` without checking whether that panel was permitted either;
+  when it was not, the redirect bounced straight back and looped forever, leaving
+  a blank page with no way to reach even the panels the user *did* have access
+  to. The redirect now only fires when the destination is actually permitted and
+  is not the page being left; otherwise the Access Denied page renders, with the
+  sidebar intact.
+
 ### Changed
 
 - Repo is laid out as a standard HACS integration: `custom_components/ha_permission_manager/`
