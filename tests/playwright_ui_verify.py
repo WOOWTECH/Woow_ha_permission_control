@@ -1,277 +1,151 @@
 #!/usr/bin/env python3
-"""Playwright UI verification for HA Permission Manager services.
+"""Playwright UI verification for Woow HA Permission Control.
 
-Takes screenshots of:
-1. Developer Tools > Services — each of the 8 services
-2. Permission Manager panel — before/after permission changes via API
+Drives a real browser against a running Home Assistant and screenshots the two
+panels this integration ships, once per identity. The point of the non-admin run
+is the whole point of the integration: what a regular user can and cannot see.
 
 Usage:
-  python3 tests/playwright_ui_verify.py
+  python3 tests/playwright_ui_verify.py                 # every configured identity
+  python3 tests/playwright_ui_verify.py admin           # just one
+
+Configuration (a repo-root .env is read automatically):
+
+  HA_URL              target instance      (default http://localhost:15124)
+  HA_TOKEN            admin long-lived access token
+  HA_TOKEN_NONADMIN   non-admin long-lived access token; the non-admin run is
+                      skipped, loudly, when this is missing
+
+Screenshots land in tests/screenshots/<identity>/. Read-only: this script never
+writes a permission.
 """
-import time
 import json
-import requests
+import os
+import sys
+import time
 from pathlib import Path
+
 from playwright.sync_api import sync_playwright
 
-HA_URL = "http://localhost:15124"
-HA_USER = "admin"
-HA_PASS = "admin"
-SCREENSHOTS_DIR = Path(__file__).parent / "screenshots"
-SCREENSHOTS_DIR.mkdir(exist_ok=True)
+REPO = Path(__file__).resolve().parent.parent
 
-ELMO_USER_ID = "72f9eb5d8d0648c3801015d9dd723a32"
 
-# 8 services to screenshot in Developer Tools
-SERVICES = [
-    "set_permission",
-    "bulk_set_permissions",
-    "remove_user_permissions",
-    "remove_resource_permissions",
-    "reset_all_permissions",
-    "get_permissions",
-    "get_users",
-    "get_resources",
+def _load_dotenv():
+    env_file = REPO / ".env"
+    if not env_file.exists():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+_load_dotenv()
+
+HA_URL = os.environ.get("HA_URL", "http://localhost:15124").rstrip("/")
+TOKENS = {
+    "admin": os.environ.get("HA_TOKEN")
+    or os.environ.get("HOMEASSISTANT-LONG-LIVED-ACCESS-TOKEN"),
+    "nonadmin": os.environ.get("HA_TOKEN_NONADMIN"),
+}
+
+# The panels this integration ships, plus one control page.
+PAGES = [
+    ("sidebar", "/lovelace/0", "sidebar as this user sees it"),
+    ("control-panel", "/ha-control-panel", "Control Panel — Areas tab"),
+    ("permission-manager", "/ha_permission_manager", "Permission Manager (admin only)"),
 ]
 
-
-def get_token():
-    """Obtain auth token via HA login flow."""
-    flow = requests.post(
-        f"{HA_URL}/auth/login_flow",
-        json={"client_id": f"{HA_URL}/", "handler": ["homeassistant", None], "redirect_uri": f"{HA_URL}/"},
-    ).json()
-    result = requests.post(
-        f"{HA_URL}/auth/login_flow/{flow['flow_id']}",
-        json={"username": HA_USER, "password": HA_PASS, "client_id": f"{HA_URL}/"},
-    ).json()
-    token_resp = requests.post(
-        f"{HA_URL}/auth/token",
-        data={"grant_type": "authorization_code", "code": result["result"], "client_id": f"{HA_URL}/"},
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-    ).json()
-    return token_resp["access_token"]
+SHOTS = REPO / "tests" / "screenshots"
 
 
-def call_write(token, service, data):
-    return requests.post(
-        f"{HA_URL}/api/services/ha_permission_manager/{service}",
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        json=data,
-    )
+def _auth_script(token):
+    """HA's frontend reads its session from localStorage['hassTokens']."""
+    payload = {
+        "access_token": token,
+        "token_type": "Bearer",
+        "expires_in": 1800,
+        "hassUrl": HA_URL,
+        "clientId": HA_URL + "/",
+        "expires": int(time.time() * 1000) + 10 * 365 * 24 * 3600 * 1000,
+    }
+    return f"localStorage.setItem('hassTokens', {json.dumps(json.dumps(payload))});"
 
 
-def login_browser(page):
-    """Login to HA via browser.
+def verify(identity, token, browser):
+    out = SHOTS / identity
+    out.mkdir(parents=True, exist_ok=True)
+    findings = []
 
-    HA trusted network auth: radio button user selection + 'Log in' button.
-    """
-    page.goto(f"{HA_URL}/")
-    page.wait_for_load_state("networkidle")
-    time.sleep(3)
+    context = browser.new_context(viewport={"width": 1440, "height": 900})
+    context.add_init_script(_auth_script(token))
+    page = context.new_page()
+    console_errors = []
+    page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
 
-    # Trusted network auth: Admin radio is pre-selected, just click Log in
-    try:
-        # Ensure Admin radio is selected (it should be by default)
-        admin_radio = page.locator(f'input[type="radio"][value="{ADMIN_USER_ID}"]')
-        if admin_radio.count() > 0:
-            admin_radio.check(force=True)
-            time.sleep(0.5)
-
-        # Click the Log in button
-        page.locator("text=Log in").first.click()
-    except Exception:
-        # Fallback: click any submit-like button
-        page.locator("ha-button, mwc-button, button").first.click()
-
-    page.wait_for_load_state("networkidle")
-    time.sleep(4)
-
-
-def screenshot_developer_tools_services(page):
-    """Navigate to Developer Tools > Actions and screenshot each service.
-
-    HA 2025+ uses "Actions" tab (formerly "Services"). The service picker
-    is deep in shadow DOM. We use JavaScript to traverse shadow roots and
-    set the service value directly.
-    """
-    print("\n--- Developer Tools: Service Forms ---")
-
-    for svc in SERVICES:
-        full_name = f"ha_permission_manager.{svc}"
-        print(f"  Screenshotting: {full_name}...", end=" ")
-
+    for name, path, _desc in PAGES:
+        url = HA_URL + path
         try:
-            # Navigate fresh to Developer Tools > Actions (Services)
-            page.goto(f"{HA_URL}/developer-tools/action")
-            page.wait_for_load_state("networkidle")
-            time.sleep(3)
+            page.goto(url, wait_until="networkidle", timeout=45000)
+        except Exception as exc:
+            findings.append((name, "NAVIGATION FAILED", str(exc)[:120]))
+            continue
+        time.sleep(2.5)  # let the panel's WebSocket round-trip settle
+        shot = out / f"{name}.png"
+        page.screenshot(path=str(shot), full_page=False)
 
-            # Deep shadow DOM traversal to find and set the service picker
-            success = page.evaluate(f"""() => {{
-                // Helper to traverse shadow DOMs
-                function queryShadow(root, selector) {{
-                    if (!root) return null;
-                    let el = root.querySelector(selector);
-                    if (el) return el;
-                    // Check shadow roots of children
-                    const allEls = root.querySelectorAll('*');
-                    for (const child of allEls) {{
-                        if (child.shadowRoot) {{
-                            el = queryShadow(child.shadowRoot, selector);
-                            if (el) return el;
-                        }}
-                    }}
-                    return null;
-                }}
+        # Which sidebar entries is this identity actually offered?
+        items = page.evaluate(
+            """() => {
+                const el = document.querySelector('home-assistant')
+                  ?.shadowRoot?.querySelector('home-assistant-main')
+                  ?.shadowRoot?.querySelector('ha-sidebar');
+                if (!el) return null;
+                return Array.from(el.shadowRoot.querySelectorAll('a[href]'))
+                  .map(a => a.getAttribute('href'));
+            }"""
+        )
+        findings.append((name, "ok", f"{shot.name}; sidebar={items}"))
 
-                // Find ha-service-picker or ha-action-picker in shadow DOM
-                let picker = queryShadow(document, 'ha-service-picker');
-                if (!picker) picker = queryShadow(document, 'ha-action-picker');
-
-                if (picker) {{
-                    picker.value = '{full_name}';
-                    picker.dispatchEvent(new CustomEvent('value-changed', {{
-                        detail: {{ value: '{full_name}' }},
-                        bubbles: true,
-                        composed: true
-                    }}));
-                    return 'picker-set';
-                }}
-
-                // Fallback: try to find the service control
-                let control = queryShadow(document, 'ha-service-control');
-                if (!control) control = queryShadow(document, 'ha-action-control');
-                if (control) {{
-                    control.value = {{ action: '{full_name}', data: {{}} }};
-                    control.dispatchEvent(new CustomEvent('value-changed', {{
-                        detail: {{ value: {{ action: '{full_name}', data: {{}} }} }},
-                        bubbles: true,
-                        composed: true
-                    }}));
-                    return 'control-set';
-                }}
-
-                return 'not-found';
-            }}""")
-
-            time.sleep(3)
-
-            # Take screenshot
-            fname = f"devtools_svc_{svc}.png"
-            page.screenshot(path=str(SCREENSHOTS_DIR / fname), full_page=True)
-            print(f"OK ({success}) -> {fname}")
-        except Exception as e:
-            fname = f"devtools_svc_{svc}.png"
-            page.screenshot(path=str(SCREENSHOTS_DIR / fname), full_page=True)
-            print(f"PARTIAL -> {fname}: {e}")
-
-
-def screenshot_permission_manager_panel(page, token):
-    """Screenshot Permission Manager panel before/after API changes."""
-    print("\n--- Permission Manager Panel ---")
-
-    # 1. Reset permissions first
-    call_write(token, "reset_all_permissions", {"confirm": True})
-    time.sleep(0.5)
-
-    # 2. Navigate to Permission Manager panel
-    page.goto(f"{HA_URL}/ha_permission_manager")
-    page.wait_for_load_state("networkidle")
-    time.sleep(3)
-
-    # Screenshot empty state
-    page.screenshot(path=str(SCREENSHOTS_DIR / "panel_empty.png"), full_page=True)
-    print("  Screenshotted: panel_empty.png (no permissions set)")
-
-    # 3. Set a single permission via API
-    call_write(token, "set_permission", {
-        "user_id": ELMO_USER_ID,
-        "resource_id": "area_living_room",
-        "level": 1,
-    })
-    time.sleep(0.5)
-
-    # Reload panel
-    page.reload()
-    page.wait_for_load_state("networkidle")
-    time.sleep(3)
-
-    page.screenshot(path=str(SCREENSHOTS_DIR / "panel_after_set.png"), full_page=True)
-    print("  Screenshotted: panel_after_set.png (1 permission set)")
-
-    # 4. Bulk set more permissions
-    call_write(token, "bulk_set_permissions", {
-        "permissions": [
-            {"user_id": ELMO_USER_ID, "resource_id": "area_bedroom", "level": 1},
-            {"user_id": ELMO_USER_ID, "resource_id": "panel_lovelace", "level": 1},
-            {"user_id": ELMO_USER_ID, "resource_id": "label_zi_dong_hua", "level": 0},
-        ]
-    })
-    time.sleep(0.5)
-
-    # Reload panel
-    page.reload()
-    page.wait_for_load_state("networkidle")
-    time.sleep(3)
-
-    page.screenshot(path=str(SCREENSHOTS_DIR / "panel_after_bulk.png"), full_page=True)
-    print("  Screenshotted: panel_after_bulk.png (4 permissions after bulk set)")
-
-    # 5. Remove one resource permission
-    call_write(token, "remove_resource_permissions", {"resource_id": "area_bedroom"})
-    time.sleep(0.5)
-
-    page.reload()
-    page.wait_for_load_state("networkidle")
-    time.sleep(3)
-
-    page.screenshot(path=str(SCREENSHOTS_DIR / "panel_after_remove.png"), full_page=True)
-    print("  Screenshotted: panel_after_remove.png (after remove_resource_permissions)")
+    context.close()
+    return findings, console_errors
 
 
 def main():
-    print("=" * 60)
-    print("HA Permission Manager — Playwright UI Verification")
-    print("=" * 60)
+    wanted = sys.argv[1:] or list(TOKENS)
+    print("=" * 64)
+    print("Woow HA Permission Control — UI verification")
+    print("=" * 64)
+    print(f"Target: {HA_URL}")
 
-    # Get API token
-    print("\nObtaining API token...", end=" ")
-    token = get_token()
-    print("OK")
-
+    exit_code = 0
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            viewport={"width": 1280, "height": 900},
-            ignore_https_errors=True,
-        )
-        page = context.new_page()
-
-        # Login
-        print("Logging into HA...", end=" ")
-        login_browser(page)
-        print("OK")
-
-        # Take initial screenshot
-        page.screenshot(path=str(SCREENSHOTS_DIR / "ha_logged_in.png"), full_page=True)
-        print("  Screenshotted: ha_logged_in.png")
-
-        # Developer Tools screenshots
-        screenshot_developer_tools_services(page)
-
-        # Permission Manager panel screenshots
-        screenshot_permission_manager_panel(page, token)
-
+        browser = p.chromium.launch()
+        for identity in wanted:
+            token = TOKENS.get(identity)
+            if not token:
+                env = "HA_TOKEN" if identity == "admin" else "HA_TOKEN_NONADMIN"
+                print(f"\n!! SKIPPING '{identity}': {env} is not set.")
+                print("!! The non-admin run is the one that proves the Filters work.")
+                exit_code = 2
+                continue
+            print(f"\n--- identity: {identity} ---")
+            findings, console_errors = verify(identity, token, browser)
+            for name, status, detail in findings:
+                mark = "v" if status == "ok" else "X"
+                print(f"  [{mark}] {name}: {detail}")
+                if status != "ok":
+                    exit_code = 1
+            if console_errors:
+                print(f"  console errors ({len(console_errors)}):")
+                for e in console_errors[:5]:
+                    print(f"    - {e[:160]}")
         browser.close()
 
-    # List screenshots
-    screenshots = sorted(SCREENSHOTS_DIR.glob("*.png"))
-    print(f"\n{'='*60}")
-    print(f"Total screenshots: {len(screenshots)}")
-    for s in screenshots:
-        print(f"  {s.name}")
-    print("=" * 60)
+    print(f"\nScreenshots: {SHOTS}")
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":
