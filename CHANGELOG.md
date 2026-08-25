@@ -25,6 +25,26 @@
   covers the anchored panel's content, and a user with every panel Closed still
   sees a sidebar with no panels in it.
 
+- **Granting the `lovelace` panel grew a dead sidebar entry.** Home Assistant
+  keeps a stub `lovelace` panel on any instance without a legacy overview
+  dashboard, and opening it sends the browser straight to `/home`. Discovery
+  offered it as a Resource anyway, so an admin who granted View on it gave the
+  user a sidebar entry that only ever reached Access Denied. Discovery no longer
+  offers a panel Home Assistant will not route to, and `get_panel_permissions`
+  no longer reports one. The test is word-for-word Home Assistant's own
+  (`component_name == "lovelace"` with no `config.mode`), so the two cannot
+  drift. Grant `panel_home` for the default dashboard.
+
+  A level set on such a panel before this release stays in the Permission store
+  untouched — it is ignored, not deleted, so it comes back to life if the panel
+  ever becomes real.
+
+- **Home Assistant's router could throw `reading 'path'` during a redirect.**
+  The Filters replaced `hass.panels` on every permission event, even when the
+  result was identical, and a rebuild landing mid-navigation left the router
+  reading `route.path` off undefined. The panel map is now replaced only when it
+  actually changed.
+
 ### Added
 
 - `frontend/permission_policy.js` — the panel-level Permission decisions as pure

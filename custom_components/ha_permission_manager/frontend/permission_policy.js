@@ -170,6 +170,19 @@ export function decideInitAccess({
 }
 
 /**
+ * Whether two panel maps say the same thing.
+ *
+ * Replacing hass.panels makes Home Assistant rebuild the page element, and a
+ * rebuild during an in-flight route change is what makes its router read
+ * `route.path` off undefined. So the Filters only replace the map when the map
+ * actually changed. filterPanels() builds its result in a fixed order, so a
+ * serialised comparison is stable.
+ */
+export function panelsEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
  * A panel kept in hass.panels for routing only, hidden from the sidebar.
  *
  * Home Assistant hides a panel when `show_in_sidebar === false` OR when it has

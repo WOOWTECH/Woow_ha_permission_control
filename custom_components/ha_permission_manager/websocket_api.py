@@ -14,6 +14,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import label_registry as lr
 
 from .const import DOMAIN, PREFIX_PANEL, PREFIX_AREA, PREFIX_LABEL
+from .discovery import unroutable_panel_ids
 
 if TYPE_CHECKING:
     from homeassistant.components.websocket_api import ActiveConnection
@@ -507,6 +508,13 @@ def ws_get_panel_permissions(
     # Get all permissions for this user from Store
     user_perms = _get_user_permissions(hass, user_id)
 
+    # A Permission level on a panel Home Assistant never routes to cannot be
+    # honoured. Discovery stopped offering those Resources, but a level set
+    # before that stays in the Permission store — reporting it would put a
+    # sidebar entry there that only ever leads to Access Denied. The store row
+    # is left alone, so it comes back to life if the panel ever becomes real.
+    unroutable = unroutable_panel_ids(hass)
+
     matched_panel = 0
 
     for resource_id, perm_level in user_perms.items():
@@ -518,6 +526,9 @@ def ws_get_panel_permissions(
 
         # Extract panel_id from resource_id (strip prefix)
         panel_id = resource_id[len(PREFIX_PANEL):]
+
+        if panel_id in unroutable:
+            continue
 
         # Admin users always get level 1 (full access) for permission_manager panel
         if is_admin and panel_id == "ha_permission_manager":

@@ -17,6 +17,7 @@ import {
   filterPanels,
   isPermitted,
   panelIdFromPath,
+  panelsEqual,
   resolveRedirectTarget,
 } from "../custom_components/ha_permission_manager/frontend/permission_policy.js";
 
@@ -329,4 +330,44 @@ test("filterPanels leaves the source panels untouched", () => {
     currentPanel: "ha-control-panel",
   });
   assert.deepEqual(LIVE_PANELS, before);
+});
+
+test("panelsEqual sees through a fresh object with the same content", () => {
+  // filterPanels returns new objects every call. Without this, hass would be
+  // replaced on every event and Home Assistant would rebuild the page each
+  // time — the rebuild that makes its router read `route.path` off undefined.
+  const args = {
+    panels: LIVE_PANELS,
+    permissions: LIVE_PERMISSIONS,
+    currentPanel: "ha-control-panel",
+  };
+  assert.equal(panelsEqual(filterPanels(args).panels, filterPanels(args).panels), true);
+});
+
+test("panelsEqual reports a real change", () => {
+  const before = filterPanels({
+    panels: LIVE_PANELS,
+    permissions: {},
+    currentPanel: "ha-control-panel",
+  }).panels;
+  const after = filterPanels({
+    panels: LIVE_PANELS,
+    permissions: { home: 1 },
+    currentPanel: "ha-control-panel",
+  }).panels;
+  assert.equal(panelsEqual(before, after), false);
+});
+
+test("panelsEqual sees the anchor appearing on an otherwise identical map", () => {
+  const granted = filterPanels({
+    panels: LIVE_PANELS,
+    permissions: { "ha-control-panel": 1 },
+    currentPanel: "ha-control-panel",
+  }).panels;
+  const anchored = filterPanels({
+    panels: LIVE_PANELS,
+    permissions: {},
+    currentPanel: "ha-control-panel",
+  }).panels;
+  assert.equal(panelsEqual(granted, anchored), false);
 });

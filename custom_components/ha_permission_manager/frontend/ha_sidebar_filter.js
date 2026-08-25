@@ -15,6 +15,7 @@ import {
   isExemptPanel,
   isPermitted,
   panelIdFromPath,
+  panelsEqual,
 } from "./permission_policy.js";
 
 (function() {
@@ -236,7 +237,7 @@ import {
 
     // Admin users see all panels
     if (is_admin) {
-      haMain.hass = { ...haMain.hass, panels: { ...originalPanels } };
+      applyPanels(haMain, { ...originalPanels });
       return;
     }
 
@@ -249,8 +250,18 @@ import {
       currentPanel: panelIdFromPath(window.location.pathname),
     });
 
-    // Apply filtered panels
-    haMain.hass = { ...haMain.hass, panels: filteredPanels };
+    applyPanels(haMain, filteredPanels);
+  }
+
+  /**
+   * Put a panel map on hass, but only when it differs from the one already
+   * there. Every replacement makes Home Assistant rebuild the page element,
+   * and a rebuild that lands in the middle of a route change makes its router
+   * read `route.path` off undefined.
+   */
+  function applyPanels(haMain, panels) {
+    if (panelsEqual(haMain.hass.panels, panels)) return;
+    haMain.hass = { ...haMain.hass, panels };
   }
 
   /**
