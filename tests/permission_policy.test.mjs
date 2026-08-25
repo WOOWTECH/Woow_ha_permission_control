@@ -15,6 +15,7 @@ import {
   ACCESS_REDIRECT,
   decideInitAccess,
   filterPanels,
+  isDashboardPath,
   isPermitted,
   panelIdFromPath,
   panelsEqual,
@@ -430,4 +431,51 @@ test("an admin sees dashboard content whatever the store says", () => {
     shouldShowDashboard({ permissions, isAdmin: true, pathname: "/home" }),
     true,
   );
+});
+
+/**
+ * isDashboardPath — issue #10.
+ *
+ * The component names are the ones 192.168.2.6 (HA 2026.7.2) actually reports:
+ * the default dashboard is `home`/`home`, a dashboard added by hand is
+ * `lovelace`, and this integration's own panels are `custom`.
+ */
+
+test("the default dashboard panel is a dashboard", () => {
+  assert.equal(
+    isDashboardPath({ panels: { home: panel("home", { component_name: "home" }) }, pathname: "/home" }),
+    true,
+  );
+});
+
+test("a dashboard added by hand is a dashboard", () => {
+  assert.equal(
+    isDashboardPath({
+      panels: { "dashboard-kitchen": panel("dashboard-kitchen", { component_name: "lovelace" }) },
+      pathname: "/dashboard-kitchen/0",
+    }),
+    true,
+  );
+});
+
+test("a panel that renders no dashboard is not one", () => {
+  const panels = {
+    config: panel("config", { component_name: "config" }),
+    "ha-control-panel": panel("ha-control-panel", { component_name: "custom" }),
+  };
+  assert.equal(isDashboardPath({ panels, pathname: "/config/areas" }), false);
+  assert.equal(isDashboardPath({ panels, pathname: "/ha-control-panel" }), false);
+});
+
+test("a panel this browser's map does not hold answers no, so nothing is claimed about it", () => {
+  // The sidebar filter replaces hass.panels with a filtered map, so a denied
+  // panel can be missing entirely. Saying "not a dashboard" here only silences
+  // a diagnostic; it never decides whether content is hidden.
+  assert.equal(isDashboardPath({ panels: LIVE_PANELS, pathname: "/dashboard-kitchen" }), false);
+  assert.equal(isDashboardPath({ panels: null, pathname: "/home" }), false);
+});
+
+test("a path that names no panel is treated as the dashboard still being resolved", () => {
+  assert.equal(isDashboardPath({ panels: LIVE_PANELS, pathname: "/" }), true);
+  assert.equal(isDashboardPath({ panels: null, pathname: "" }), true);
 });

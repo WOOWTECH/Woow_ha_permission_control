@@ -1,5 +1,66 @@
 # Changelog
 
+## v2.0.3 — 2026-08-25
+
+### Fixed
+
+- **The lovelace filter could never hide the default dashboard.** It walked a
+  spelt-out path through Home Assistant's element hierarchy that ended at
+  `ha-panel-lovelace`. On HA 2026.7.2 the default dashboard renders under
+  `ha-panel-home`, and `partial-panel-resolver` has no shadow root at all, so
+  the walk returned early — silently, without a log or a counter. It also only
+  ran on `/` and `/lovelace*`, and the default dashboard is served at `/home`.
+  Two hard-coded pieces of Home Assistant's vocabulary, each enough on its own
+  to stop the Filter dead. The Filter now searches the shadow tree for the
+  dashboard element instead of naming the way to it, and runs on every path.
+
+- **A decision to hide that hid nothing said nothing.** Every `return` on the
+  old traversal was silent, which is why this went unnoticed for a release.
+  When the Permission store says hide and no dashboard element is found, the
+  Filter now warns on the console, naming the path and what it looked for —
+  once per path, and only after a grace period, so a dashboard that has not
+  rendered yet is not reported as a missing one.
+
+- **Two "no access" messages would have stacked.** Fixing the actuation above
+  made the lovelace filter's centred message run on the default dashboard for
+  the first time — on top of the Access Denied Filter, which already replaces
+  the page. The message is now shown only where that overlay is absent, which
+  is the case it exists for: a client-side navigation into a denied dashboard,
+  where the overlay's check never re-runs.
+
+### Changed
+
+- The Filter hides the dashboard element itself rather than reaching inside it
+  for `#view` and `.toolbar`. Those ids are Home Assistant's internals in
+  exactly the way the traversal was.
+
+- `docs/adr/0005` records the design call the issue asked for: both layers stay,
+  because they cover different moments, but finding an element in Home
+  Assistant's shadow tree is done one way, and a Filter that decides to act and
+  then acts on nothing says so. The sidebar and Access Denied Filters still
+  spell out walks of their own; those walks work on 2026.7.2 and converting
+  them belongs with issue #6, which already owns those files.
+
+- DOM mutations no longer run the filter directly; they schedule it, at most
+  once every 150 ms. The search is cheaper than the walk was fragile, but a
+  rendered dashboard mutates constantly.
+
+- New `shadow_dom.js` holds the search, `permission_policy.js` gains
+  `isDashboardPath`. Both are pure and unit tested offline:
+  `node --test tests/shadow_dom.test.mjs` (12 tests) and
+  `node --test tests/permission_policy.test.mjs` (34 tests, 5 new). The
+  fixtures in the first are the two element hierarchies Home Assistant has
+  actually shipped, so one traversal is shown to cover both.
+
+### Note on v2.0.2
+
+`7600f14`'s commit message called the pre-2.0.2 blanking regression "observed
+rather than argued" on 192.168.2.6. The decision half was measured and is
+correct; the consequence half was not observable there, because the traversal
+fixed above meant v2.0.1 would have left that dashboard visible too. The v2.0.2
+fix stands and is unit tested — only the strength of that one live claim was
+overstated.
+
 ## v2.0.2 — 2026-08-25
 
 ### Fixed

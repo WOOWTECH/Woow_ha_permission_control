@@ -40,6 +40,14 @@ A JS module injected on every HA page that hides what a user has no View
 permission for. Three exist: sidebar filter, lovelace filter, access-denied.
 _Avoid_: guard, interceptor, middleware
 
+**Dashboard**:
+A Home Assistant Lovelace page, rendered into a `hui-root` element: the default
+one Home Assistant serves at `/home`, and any added by hand. Governed by the
+Permission on the panel Home Assistant routes to, never by a Permission of its
+own. Not a thing this repo ships — the word is Home Assistant's, and the
+Control Panel is never one of these.
+_Avoid_: overview, lovelace page, view
+
 **Dist repo**:
 An auto-generated mirror repository that existed only to satisfy HACS's
 one-integration-per-repo rule. Deprecated once this repo ships a single

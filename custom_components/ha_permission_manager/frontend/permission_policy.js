@@ -264,3 +264,50 @@ export function shouldShowDashboard({ permissions, isAdmin, pathname }) {
   if (!permissions) return false;
   return isPermitted(permissions.panels, panelIdFromPath(pathname));
 }
+
+/**
+ * Component names Home Assistant gives a panel that renders a dashboard.
+ *
+ * `lovelace` is a dashboard added by hand; `home` is the default dashboard on
+ * an instance with no legacy overview. Both were read off 192.168.2.6 running
+ * HA 2026.7.2.
+ *
+ * This is the one list here that names Home Assistant's own vocabulary, so it
+ * is the one that will go stale. It is deliberately kept out of every decision
+ * about hiding: a name missing from this list costs a diagnostic, never a
+ * Permission.
+ */
+export const DASHBOARD_COMPONENT_NAMES = Object.freeze(["lovelace", "home"]);
+
+/**
+ * Whether the panel this path routes to is one that renders a dashboard.
+ *
+ * Used only to tell "this dashboard should have been hidden and was not" —
+ * a defect worth reporting — from "there is no dashboard on this page", which
+ * is the ordinary case on every other panel.
+ *
+ * Answers "yes" for a path that names no panel: the browser is on "/" and Home
+ * Assistant has not yet rewritten it to whichever dashboard it serves. Answers
+ * "no" for a panel the given map does not hold, because the Filters run
+ * against a `hass.panels` the sidebar filter has already filtered, and a panel
+ * missing from it is a panel nothing can be claimed about.
+ *
+ * That last case is a known limit of the diagnostic, not of the hiding.
+ * filterPanels() keeps the routed panel as an anchor, so the map answers for
+ * the page the browser loaded; after a client-side navigation the anchor is
+ * stale (issue #6, Mechanism B) and this quietly answers "no", which costs a
+ * warning that would have been earned. It never costs a Permission: whether
+ * content is hidden is decided by shouldShowDashboard() alone.
+ *
+ * @param {object} args
+ * @param {Record<string, object>|null} args.panels hass.panels as this browser has it
+ * @param {string} args.pathname e.g. "/home"
+ * @returns {boolean}
+ */
+export function isDashboardPath({ panels, pathname }) {
+  const panelId = panelIdFromPath(pathname);
+  if (panelId === null) return true;
+  const panel = (panels || {})[panelId];
+  if (!panel) return false;
+  return DASHBOARD_COMPONENT_NAMES.includes(panel.component_name);
+}
