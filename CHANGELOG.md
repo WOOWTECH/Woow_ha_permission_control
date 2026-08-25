@@ -1,5 +1,41 @@
 # Changelog
 
+## v2.0.2 — 2026-08-25
+
+### Fixed
+
+- **The permission matrix still offered the panel v2.0.1 stopped honouring.**
+  v2.0.1 taught discovery and `get_panel_permissions` about panels Home
+  Assistant registers but never routes to; the matrix built its own panel list
+  and learned nothing. An administrator saw the stub `lovelace` toggle, granted
+  View on it, and the level saved — then `get_panel_permissions` dropped it. A
+  toggle that saves and does nothing is worse than the entry it replaced. The
+  matrix now reads the same list everything else honours.
+
+- **`get_all_permissions` and `get_panel_permissions` disagreed.** Only the
+  latter dropped unroutable panels, so the two endpoints reported different
+  levels for the same stored row. Both now make the same exclusion. The
+  Permission store is still left untouched either way.
+
+- **Granting `panel_home` left the dashboard blank.** The lovelace filter looked
+  for a permission key equal to or containing `lovelace`, then fell through to
+  its fail-secure default. So the migration this changelog documents — grant
+  `panel_home` for the default dashboard — hid the very dashboard it granted.
+  A dashboard is now governed by the Permission on the panel Home Assistant is
+  routing to, resolved the same way the sidebar filter resolves it. This also
+  fixes dashboards added by hand: `/dashboard-kitchen` is governed by
+  `panel_dashboard-kitchen`, where before no grant could ever reveal it.
+
+### Changed
+
+- The panel decisions shared by discovery and the WebSocket API move into
+  `panel_policy.py`, which imports nothing from Home Assistant and is unit
+  tested offline: `python -m pytest tests/test_panel_policy.py`. Its frontend
+  counterpart `permission_policy.js` gains `shouldShowDashboard`, covered by
+  `node --test tests/permission_policy.test.mjs`. Building the panel list in
+  two places is what let the matrix drift from what the integration honours;
+  there is now one answer to each question.
+
 ## v2.0.1 — 2026-08-25
 
 ### Fixed

@@ -14,7 +14,8 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import label_registry as lr
 
 from .const import DOMAIN, PREFIX_PANEL, PREFIX_AREA, PREFIX_LABEL
-from .discovery import unroutable_panel_ids
+from .discovery import get_registered_panels, unroutable_panel_ids
+from .panel_policy import admin_panel_resources
 
 if TYPE_CHECKING:
     from homeassistant.components.websocket_api import ActiveConnection
@@ -583,9 +584,16 @@ def ws_get_all_permissions(
     # Get all permissions for this user from Store
     user_perms = _get_user_permissions(hass, user_id)
 
+    # The same exclusion get_panel_permissions makes. Reporting a level here
+    # that the other endpoint drops would have the Filters disagree about the
+    # same stored row. The store itself is left untouched either way.
+    unroutable = unroutable_panel_ids(hass)
+
     for resource_id, perm_level in user_perms.items():
         if resource_id.startswith(PREFIX_PANEL):
             panel_id = resource_id[len(PREFIX_PANEL):]
+            if panel_id in unroutable:
+                continue
             panels[panel_id] = perm_level
 
         elif resource_id.startswith(PREFIX_AREA):
@@ -667,25 +675,11 @@ async def ws_get_admin_data(
         "labels": [],
     }
 
-    # Get panels from frontend_panels (excluding internal panels)
-    frontend_panels = hass.data.get("frontend_panels", {})
-    excluded_panels = {
-        "developer-tools", "config", "profile",
-    }
-    for panel_id, panel in frontend_panels.items():
-        if panel_id in excluded_panels:
-            continue
-        # Get panel title
-        title = panel_id
-        if hasattr(panel, "title") and panel.title:
-            title = panel.title
-        elif hasattr(panel, "config") and isinstance(panel.config, dict):
-            title = panel.config.get("title", panel_id)
-        resources["panels"].append({
-            "id": panel_id,
-            "name": title,
-            "type": "panel",
-        })
+    # The matrix offers exactly the panels the rest of the integration honours.
+    # Building this list separately is what let the matrix keep offering a
+    # panel Home Assistant never routes to: the level saved fine and
+    # get_panel_permissions then dropped it, leaving a toggle that did nothing.
+    resources["panels"] = admin_panel_resources(get_registered_panels(hass))
 
     # Get areas
     area_reg = ar.async_get(hass)

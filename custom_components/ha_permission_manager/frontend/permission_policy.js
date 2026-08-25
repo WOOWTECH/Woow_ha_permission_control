@@ -240,3 +240,27 @@ export function filterPanels({ panels, permissions, currentPanel }) {
 
   return { panels: filtered, anchored };
 }
+
+/**
+ * Whether the dashboard content on this path may be shown.
+ *
+ * The Permission that governs a dashboard is the one on the panel Home
+ * Assistant is routing to — `home` on an instance with no legacy overview,
+ * `lovelace` on one that has, `dashboard-kitchen` for a dashboard added by
+ * hand. Reading it off the path is what keeps this Filter saying the same
+ * thing as the sidebar filter, which resolves the very same panel id the very
+ * same way.
+ *
+ * Fail-secure: with no Permission store loaded, or no explicit level above
+ * Closed on the routed panel, the content stays hidden.
+ *
+ * @param {{panels?: Object}|null} permissions get_all_permissions result
+ * @param {boolean} isAdmin
+ * @param {string} pathname e.g. "/home"
+ * @returns {boolean} true when the content may be VISIBLE
+ */
+export function shouldShowDashboard({ permissions, isAdmin, pathname }) {
+  if (isAdmin) return true;
+  if (!permissions) return false;
+  return isPermitted(permissions.panels, panelIdFromPath(pathname));
+}

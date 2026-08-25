@@ -19,6 +19,7 @@ import {
   panelIdFromPath,
   panelsEqual,
   resolveRedirectTarget,
+  shouldShowDashboard,
 } from "../custom_components/ha_permission_manager/frontend/permission_policy.js";
 
 /** A panel entry shaped like the ones Home Assistant puts in hass.panels. */
@@ -370,4 +371,63 @@ test("panelsEqual sees the anchor appearing on an otherwise identical map", () =
     currentPanel: "ha-control-panel",
   }).panels;
   assert.equal(panelsEqual(granted, anchored), false);
+});
+
+test("a user granted only the default dashboard sees its content", () => {
+  // The migration CHANGELOG v2.0.1 documents: the stub `lovelace` panel is no
+  // longer a Resource, so the default dashboard is granted as `panel_home`.
+  // That grant has to actually reach the dashboard content.
+  const permissions = { panels: { home: 1 } };
+
+  assert.equal(
+    shouldShowDashboard({ permissions, isAdmin: false, pathname: "/home" }),
+    true,
+  );
+});
+
+test("a dashboard added by hand is honoured by the level on its own panel", () => {
+  // The rule this replaced looked for a permission key containing "lovelace",
+  // so a dashboard at /dashboard-kitchen was hidden however it was granted.
+  const permissions = { panels: { "dashboard-kitchen": 1 } };
+
+  assert.equal(
+    shouldShowDashboard({ permissions, isAdmin: false, pathname: "/dashboard-kitchen" }),
+    true,
+  );
+});
+
+test("a level on a panel the user is not on does not unlock the dashboard", () => {
+  // The store row for the stub panel survives the upgrade untouched. It must
+  // not be read as a grant on the dashboard the user was rerouted to.
+  const permissions = { panels: { lovelace: 1 } };
+
+  assert.equal(
+    shouldShowDashboard({ permissions, isAdmin: false, pathname: "/home" }),
+    false,
+  );
+});
+
+test("a denied dashboard stays hidden", () => {
+  const permissions = { panels: { home: 0 } };
+
+  assert.equal(
+    shouldShowDashboard({ permissions, isAdmin: false, pathname: "/home" }),
+    false,
+  );
+});
+
+test("shouldShowDashboard is fail-secure before the Permission store loads", () => {
+  assert.equal(
+    shouldShowDashboard({ permissions: null, isAdmin: false, pathname: "/home" }),
+    false,
+  );
+});
+
+test("an admin sees dashboard content whatever the store says", () => {
+  const permissions = { panels: { home: 0 } };
+
+  assert.equal(
+    shouldShowDashboard({ permissions, isAdmin: true, pathname: "/home" }),
+    true,
+  );
 });

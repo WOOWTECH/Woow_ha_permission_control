@@ -4,13 +4,13 @@
  *
  * v2.7.10 - Security hardening: removed debug objects and verbose logging
  */
+import { shouldShowDashboard } from "./permission_policy.js";
+
 (function() {
   "use strict";
 
   // Loading overlay is owned by ha_sidebar_filter.js — do not create here.
   // This prevents the race condition where duplicate overlays cause permanent UI blocking.
-
-  const PERM_DENY = 0;
 
   // State
   let permissions = null;
@@ -71,44 +71,17 @@
   /**
    * Check if user should see lovelace content
    * Returns TRUE if content should be VISIBLE
+   *
+   * The decision itself lives in permission_policy.js, so this Filter and the
+   * sidebar filter resolve the routed panel the same way and cannot disagree
+   * about which Permission governs the dashboard.
    */
   function shouldShowContent() {
-    // Admin always sees everything
-    if (isAdmin) {
-      return true;
-    }
-
-    // No permissions loaded yet - fail-secure: hide content
-    if (!permissions) {
-      return false;
-    }
-
-    // Check lovelace panel permission specifically
-    // The panel key could be "lovelace" or other variants
-    const panelKeys = Object.keys(permissions.panels || {});
-
-    // Find lovelace permission
-    let lovelaceLevel = null;
-    for (const key of panelKeys) {
-      if (key === "lovelace" || key.includes("lovelace")) {
-        lovelaceLevel = permissions.panels[key];
-        break;
-      }
-    }
-
-    // If lovelace permission is 0 (DENY), hide content
-    if (lovelaceLevel !== null && lovelaceLevel === PERM_DENY) {
-      return false;
-    }
-
-    // If we have lovelace permission > 0, show content
-    // Panel permission alone controls dashboard visibility
-    if (lovelaceLevel !== null && lovelaceLevel > PERM_DENY) {
-      return true;
-    }
-
-    // Default: fail-secure - hide content if no explicit lovelace permission found
-    return false;
+    return shouldShowDashboard({
+      permissions,
+      isAdmin,
+      pathname: window.location.pathname,
+    });
   }
 
   /**
