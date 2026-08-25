@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from pathlib import Path
 from typing import Any
 
@@ -383,8 +382,10 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
     add_extra_js_url(hass, f"{FRONTEND_URL_BASE}/ha_lovelace_filter.js?v={PANEL_VERSION}")
 
     # Register sidebar title translation JS (runs on every page)
-    cache_buster = int(time.time())
-    add_extra_js_url(hass, f"{FRONTEND_URL_BASE}/sidebar-title.js?v={cache_buster}")
+    # Busted by PANEL_VERSION like every other asset, rather than by a restart
+    # timestamp: one bump has to move the whole graph, or the version query
+    # stops being the thing that says which release a browser is running.
+    add_extra_js_url(hass, f"{FRONTEND_URL_BASE}/sidebar-title.js?v={PANEL_VERSION}")
 
     _LOGGER.debug("Frontend panels registered")
 

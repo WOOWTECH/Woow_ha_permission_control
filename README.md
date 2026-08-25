@@ -186,7 +186,7 @@ custom_components/ha_permission_manager/
 CONTEXT.md               the glossary — read this before contributing
 docs/adr/                why things are the way they are
 docs/services-guide.md   the full service reference (EN / 中文)
-tests/                   REST functional tests and Playwright UI verification
+tests/                   offline suites, plus REST and Playwright verification
 ```
 
 ## Contributing
@@ -194,6 +194,19 @@ tests/                   REST functional tests and Playwright UI verification
 Read [CONTEXT.md](CONTEXT.md) for the vocabulary and [docs/adr/](docs/adr/) for
 the decisions already made. If a change contradicts an ADR, say so in the PR
 rather than working around it.
+
+The offline suites need no Home Assistant, and CI runs them on every push:
+
+```bash
+node --test tests/*.test.mjs          # policy decisions, DOM search, asset graph
+python -m pytest tests/test_panel_policy.py
+```
+
+`tests/frontend_assets.test.mjs` is the one to know about when bumping a
+version: `PANEL_VERSION` in `const.py` is the only cache buster, and that test
+is what keeps every registered asset and every import specifier moving with it
+(see [ADR-0006](docs/adr/0006-a-frontend-asset-carries-its-cache-buster-onto-what-it-pulls-in.md)).
+The remaining suites drive a live instance and erase what they point at.
 
 Issues: <https://github.com/WOOWTECH/Woow_ha_permission_control/issues>
 

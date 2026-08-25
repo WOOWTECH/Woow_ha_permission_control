@@ -2,9 +2,12 @@
 // Combines Area Control and Label Control into a single tabbed interface
 // Matches HA Home Dashboard design with tall tiles and embedded controls
 
+/** This module's cache buster, carried onto everything it pulls in (ADR-0006). */
+const ASSET_VERSION_QUERY = new URL(import.meta.url).search;
+
 // Local Lit bundle (no CDN dependency for offline/intranet environments)
 const { LitElement, html, css } = await import(
-  "/ha_permission_manager_frontend/lit.js"
+  `/ha_permission_manager_frontend/lit.js${ASSET_VERSION_QUERY}`
 );
 
 // ============================================================================

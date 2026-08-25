@@ -1,0 +1,32 @@
+# The offline suites: everything that can be decided without a Home Assistant
+# to point at. The live-instance suites (test_services_api.py,
+# playwright_ui_verify.py, verify_issue_10.py) are deliberately absent — they
+# erase whatever they point at, and there is nothing here to point them at.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Pure-function and asset-graph tests
+        run: node --test tests/*.test.mjs
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest
+        run: python -m pip install --disable-pip-version-check pytest
+
+      - name: Panel policy tests
+        run: python -m pytest tests/test_panel_policy.py -q

@@ -6,8 +6,53 @@
  * reads the browser and Home Assistant and acts on them.
  *
  * v2.9.33 - Denied panels settle instead of navigating forever (issue #4)
+ * v2.9.34 - Everything this file pulls in is busted with it (issue #9)
  */
-import {
+
+/** This module's cache buster, carried onto everything it pulls in (ADR-0006). */
+const ASSET_VERSION_QUERY = new URL(import.meta.url).search;
+
+// An entry point served without `?v=` propagates nothing, and every specifier
+// below quietly reverts to the unbusted form issue #9 is about.
+// tests/frontend_assets.test.mjs stops that reaching a release; this says so in
+// the browser if one ever does. It is worth a line here and not in the panels,
+// because a panel that fails to load is a blank page somebody reports, and an
+// unfiltered sidebar is a page that looks entirely normal.
+if (!ASSET_VERSION_QUERY) {
+  console.warn(
+    "[SidebarFilter] Loaded with no version query, so what this file imports " +
+    "cannot be cache-busted. A stale copy leaves the sidebar unfiltered."
+  );
+}
+
+// === IMMEDIATE LOADING OVERLAY ===
+// Blocks content visibility until permissions are checked.
+// Must execute synchronously before any async work — which is why it sits
+// above the import rather than inside the body below it. Pulling the policy in
+// is the first async work this file does, and covering the page across exactly
+// that kind of gap is the overlay's whole job.
+// Guard: only create if no overlay exists yet (prevents duplicate with lovelace filter)
+if (!document.getElementById("perm-loading-overlay")) {
+  const _loadingOverlay = document.createElement("div");
+  _loadingOverlay.id = "perm-loading-overlay";
+  _loadingOverlay.style.cssText =
+    "position:fixed;top:0;left:0;right:0;bottom:0;" +
+    "z-index:9999;" +
+    "background:var(--primary-background-color,#fafafa);" +
+    "transition:opacity 0.3s ease;";
+  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    _loadingOverlay.style.background = "var(--primary-background-color, #111111)";
+  }
+  if (document.body) {
+    document.body.appendChild(_loadingOverlay);
+  } else {
+    document.addEventListener("DOMContentLoaded", () => {
+      document.body.appendChild(_loadingOverlay);
+    });
+  }
+}
+
+const {
   ACCESS_ALLOW,
   ACCESS_REDIRECT,
   decideInitAccess,
@@ -16,34 +61,10 @@ import {
   isPermitted,
   panelIdFromPath,
   panelsEqual,
-} from "./permission_policy.js";
+} = await import(`./permission_policy.js${ASSET_VERSION_QUERY}`);
 
 (function() {
   "use strict";
-
-  // === IMMEDIATE LOADING OVERLAY ===
-  // Blocks content visibility until permissions are checked.
-  // Must execute synchronously before any async work.
-  // Guard: only create if no overlay exists yet (prevents duplicate with lovelace filter)
-  if (!document.getElementById("perm-loading-overlay")) {
-    const _loadingOverlay = document.createElement("div");
-    _loadingOverlay.id = "perm-loading-overlay";
-    _loadingOverlay.style.cssText =
-      "position:fixed;top:0;left:0;right:0;bottom:0;" +
-      "z-index:9999;" +
-      "background:var(--primary-background-color,#fafafa);" +
-      "transition:opacity 0.3s ease;";
-    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      _loadingOverlay.style.background = "var(--primary-background-color, #111111)";
-    }
-    if (document.body) {
-      document.body.appendChild(_loadingOverlay);
-    } else {
-      document.addEventListener("DOMContentLoaded", () => {
-        document.body.appendChild(_loadingOverlay);
-      });
-    }
-  }
 
   // One init-time redirect per browsing session. location.replace() destroys
   // the JS context, so the marker has to outlive the document — a variable
@@ -307,7 +328,7 @@ import {
     if (!customElements.get("ha-access-denied")) {
       const script = document.createElement("script");
       script.type = "module";
-      script.src = "/ha_permission_manager_frontend/ha_access_denied.js?v=" + Date.now();
+      script.src = `/ha_permission_manager_frontend/ha_access_denied.js${ASSET_VERSION_QUERY}`;
       document.head.appendChild(script);
     }
 

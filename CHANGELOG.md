@@ -1,5 +1,78 @@
 # Changelog
 
+## v2.0.4 — 2026-08-25
+
+### Fixed
+
+- **The modules holding the Filters had no cache buster, and a stale copy
+  failed open.** Every asset the integration registers carried
+  `?v={PANEL_VERSION}`; every asset one of those then imported carried nothing.
+  Six specifiers across five files reached `permission_policy.js`,
+  `shadow_dom.js` and `lit.js` unversioned, and the frontend directory is served
+  with no cache headers, so browsers cached them heuristically. A browser
+  holding a stale — or, mid-upgrade, a missing — `permission_policy.js` while
+  loading a fresh `ha_sidebar_filter.js?v=…` evaluates neither module. Both
+  Filters live inside those modules, so nothing filters: a non-admin sees every
+  panel in the sidebar and no Access Denied overlay. Each module now reads the
+  version query off its own URL and carries it onto everything it pulls in, so
+  one bump of `PANEL_VERSION` moves the whole graph at once. Reported as issue
+  #9, found by a code review of `822b6ed..3e2e1d2`.
+
+- **A Filter served without a version query said nothing about it.** The
+  propagation above yields an empty query for a module loaded without one, and
+  every specifier then reverts to exactly the unbusted form this release
+  removes — silently, which is the property the issue is about. The two Filters
+  now warn on the console in that case, following ADR-0005's rule that a Filter
+  which cannot do its job says so. The panels stay silent on purpose: a panel
+  that fails to load is a blank page somebody reports, an unfiltered sidebar is
+  a page that looks entirely normal.
+
+### Changed
+
+- **`sidebar-title.js` and the Access Denied Filter are now cached like
+  everything else.** `sidebar-title.js` was busted with a restart timestamp and
+  `ha_access_denied.js` was fetched with `Date.now()`, so both were re-downloaded
+  constantly and neither version query said anything about which release a
+  browser was running. Neither was a fail-open risk — a query that always
+  changes is always fresh — so this is a trade, not a fix: they move from "never
+  cached" to "cached until the next release", in exchange for one rule with no
+  exceptions left to check.
+
+- `ha_sidebar_filter.js` raises its loading overlay above the import rather than
+  below it. Its own comment says the overlay "must execute synchronously before
+  any async work", and pulling in the policy module is now the first async work
+  the file does.
+
+- `docs/adr/0006` records the rule, what it costs, and where it can still fail
+  quietly. Rejected: the issue's suggestion of registering `permission_policy.js`
+  through `add_extra_js_url` as well — that serves it at a different URL from the
+  one importers ask for, leaving the importers' copy exactly as unbusted as
+  before. Also rejected, but on cost rather than correctness: cache headers that
+  force revalidation, which would make the version query stop being load-bearing.
+
+### Added
+
+- `tests/frontend_assets.test.mjs` — the release check the issue asked for. It
+  reads `__init__.py` and every `frontend/*.js` as text and fails on a
+  registration that is not busted by `PANEL_VERSION` (including one written as a
+  bare literal URL), a registration naming a file `frontend/` does not hold, a
+  first-party specifier without the propagated buster, a module in `frontend/`
+  that nothing reaches, and `manifest.json` and `const.py` disagreeing about the
+  version.
+
+- `.github/workflows/tests.yml` — the release step that check is attached to.
+  Runs the offline suites on every push and pull request: `node --test
+  tests/*.test.mjs` and `python -m pytest tests/test_panel_policy.py`. The
+  live-instance suites are deliberately not in it; they need a Home Assistant to
+  point at.
+
+### Still open
+
+- **The Filters fail open.** This release removes one way the modules can fail
+  to evaluate and makes one narrow case audible; it does not change what happens
+  when they do fail. A module-level failure still leaves Home Assistant entirely
+  unfiltered. Issue #9 raises that as a separate decision.
+
 ## v2.0.3 — 2026-08-25
 
 ### Fixed

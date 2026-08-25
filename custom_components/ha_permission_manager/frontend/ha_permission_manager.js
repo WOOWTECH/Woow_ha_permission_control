@@ -3,13 +3,13 @@
  * Uses Lit Element for reactive UI components
  */
 
+/** This module's cache buster, carried onto everything it pulls in (ADR-0006). */
+const ASSET_VERSION_QUERY = new URL(import.meta.url).search;
+
 // Local Lit bundle (no CDN dependency for offline/intranet environments)
-import {
-  LitElement,
-  html,
-  css,
-  unsafeCSS,
-} from "/ha_permission_manager_frontend/lit.js";
+const { LitElement, html, css, unsafeCSS } = await import(
+  `/ha_permission_manager_frontend/lit.js${ASSET_VERSION_QUERY}`
+);
 
 // Inlined shared styles for HA panel compatibility
 const sharedStylesLit = `

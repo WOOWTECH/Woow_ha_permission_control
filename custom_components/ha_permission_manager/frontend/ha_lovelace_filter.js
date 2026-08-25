@@ -7,9 +7,25 @@
  *
  * v2.7.11 - Find the dashboard by looking for it, and say so when it is not
  *           found (issue #10)
+ * v2.7.12 - Everything this file pulls in is busted with it (issue #9)
  */
-import { isDashboardPath, shouldShowDashboard } from "./permission_policy.js";
-import { findByLocalName } from "./shadow_dom.js";
+
+/** This module's cache buster, carried onto everything it pulls in (ADR-0006). */
+const ASSET_VERSION_QUERY = new URL(import.meta.url).search;
+
+// See the same guard in ha_sidebar_filter.js: a Filter served without `?v=`
+// imports unbusted modules, and an unfiltered dashboard looks entirely normal.
+if (!ASSET_VERSION_QUERY) {
+  console.warn(
+    "[LovelaceFilter] Loaded with no version query, so what this file imports " +
+    "cannot be cache-busted. A stale copy leaves the dashboard unfiltered."
+  );
+}
+
+const { isDashboardPath, shouldShowDashboard } = await import(
+  `./permission_policy.js${ASSET_VERSION_QUERY}`
+);
+const { findByLocalName } = await import(`./shadow_dom.js${ASSET_VERSION_QUERY}`);
 
 (function() {
   "use strict";
