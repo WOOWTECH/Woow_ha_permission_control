@@ -11,9 +11,18 @@ It keeps existing. The two layers do not overlap as much as they look:
   denied page.
 - The lovelace filter hides dashboard content from whatever state the page is
   actually in, on every DOM mutation. It is the layer that still acts when the
-  overlay's check does not re-run — a client-side navigation into a denied
-  dashboard (issue #6, Mechanism B), or a dashboard that renders after the
-  overlay decided.
+  overlay's check does not re-run — a dashboard that renders after the overlay
+  has decided, or a client-side navigation into a denied dashboard (issue #6,
+  Mechanism B).
+
+That second case is argued from the code, not observed. Driving a client-side
+navigation to a denied `/home` on 192.168.2.6 does not reach a denied dashboard
+at all: the sidebar filter has already taken `home` out of `hass.panels`, so
+Home Assistant's router lands on `notfound` instead. On that instance the gap
+this layer is kept for is currently hidden behind #6's own defect. The layer is
+kept on the strength of the first case, which is ordinary, and on fail-secure
+grounds; if #6 is fixed and the second case still cannot be reached, this
+decision is worth reopening.
 
 Deleting the second layer would trade a defect for a gap. What the issue
 correctly rejects is not the second layer but the disagreement, so:

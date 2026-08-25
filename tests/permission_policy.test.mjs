@@ -479,3 +479,40 @@ test("a path that names no panel is treated as the dashboard still being resolve
   assert.equal(isDashboardPath({ panels: LIVE_PANELS, pathname: "/" }), true);
   assert.equal(isDashboardPath({ panels: null, pathname: "" }), true);
 });
+
+/**
+ * A page Home Assistant keeps routable but nobody grants — found by running
+ * the Filter against 192.168.2.6 for issue #10.
+ *
+ * A client-side navigation to a denied panel lands on `notfound`, because the
+ * sidebar filter has taken that panel out of hass.panels. Hiding content there
+ * puts "no content available" over Home Assistant's own 404. isExemptPanel()
+ * already says these carry no Permission; shouldShowDashboard has to agree.
+ */
+
+test("a router fallback page carries no Permission, so its content is not hidden", () => {
+  const denied = { panels: { home: 0 } };
+  assert.equal(
+    shouldShowDashboard({ permissions: denied, isAdmin: false, pathname: "/notfound/0" }),
+    true,
+  );
+});
+
+test("a path that is not a Resource is not hidden either", () => {
+  const denied = { panels: {} };
+  assert.equal(shouldShowDashboard({ permissions: denied, isAdmin: false, pathname: "/profile" }), true);
+  assert.equal(shouldShowDashboard({ permissions: denied, isAdmin: false, pathname: "/auth/authorize" }), true);
+});
+
+test("the exemption does not reach a path that names no panel", () => {
+  // "/" before Home Assistant rewrites it to whichever dashboard it serves.
+  // Fail-secure wins here: the panel is unknown, not known to be exempt.
+  assert.equal(shouldShowDashboard({ permissions: { panels: {} }, isAdmin: false, pathname: "/" }), false);
+});
+
+test("the exemption does not reach a real dashboard", () => {
+  assert.equal(
+    shouldShowDashboard({ permissions: { panels: { home: 0 } }, isAdmin: false, pathname: "/home" }),
+    false,
+  );
+});

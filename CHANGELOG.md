@@ -21,6 +21,13 @@
   once per path, and only after a grace period, so a dashboard that has not
   rendered yet is not reported as a missing one.
 
+- **The "no access" message reached Home Assistant's own 404 page.** Running on
+  every path took the lovelace filter to `notfound`, which is where Home
+  Assistant lands a browser that asks for a panel this user's filtered
+  `hass.panels` no longer holds. `isExemptPanel()` already says such a page
+  carries no Permission; `shouldShowDashboard()` now agrees with it. Found by
+  running the Filter against the live instance, not by reading it.
+
 - **Two "no access" messages would have stacked.** Fixing the actuation above
   made the lovelace filter's centred message run on the default dashboard for
   the first time — on top of the Access Denied Filter, which already replaces
@@ -48,9 +55,13 @@
 - New `shadow_dom.js` holds the search, `permission_policy.js` gains
   `isDashboardPath`. Both are pure and unit tested offline:
   `node --test tests/shadow_dom.test.mjs` (12 tests) and
-  `node --test tests/permission_policy.test.mjs` (34 tests, 5 new). The
+  `node --test tests/permission_policy.test.mjs` (38 tests, 9 new). The
   fixtures in the first are the two element hierarchies Home Assistant has
   actually shipped, so one traversal is shown to cover both.
+
+- `tests/verify_issue_10.py` drives a real browser against a running instance,
+  once per identity, and asks the page the questions this issue asks. It writes
+  no Permission.
 
 ### Note on v2.0.2
 

@@ -254,6 +254,17 @@ export function filterPanels({ panels, permissions, currentPanel }) {
  * Fail-secure: with no Permission store loaded, or no explicit level above
  * Closed on the routed panel, the content stays hidden.
  *
+ * A page that carries no Permission is not hidden. `notfound` is where Home
+ * Assistant lands a browser that asks for a panel this user's filtered
+ * hass.panels no longer holds, and hiding there puts "no content available"
+ * over Home Assistant's own 404 — the outcome isExemptPanel() exists to
+ * prevent, and which the Filter reached the moment it started running on
+ * every path.
+ *
+ * The exemption stops short of a path that names no panel. "/" before Home
+ * Assistant rewrites it is a panel not yet known, not a panel known to carry
+ * no Permission, and fail-secure decides that case.
+ *
  * @param {{panels?: Object}|null} permissions get_all_permissions result
  * @param {boolean} isAdmin
  * @param {string} pathname e.g. "/home"
@@ -262,7 +273,9 @@ export function filterPanels({ panels, permissions, currentPanel }) {
 export function shouldShowDashboard({ permissions, isAdmin, pathname }) {
   if (isAdmin) return true;
   if (!permissions) return false;
-  return isPermitted(permissions.panels, panelIdFromPath(pathname));
+  const panelId = panelIdFromPath(pathname);
+  if (panelId !== null && isExemptPanel(panelId)) return true;
+  return isPermitted(permissions.panels, panelId);
 }
 
 /**
