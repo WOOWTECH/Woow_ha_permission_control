@@ -2,8 +2,21 @@
  * HA Permission Manager - Sidebar Filter
  * Hides panels user doesn't have access to
  *
- * v2.9.32 - Security hardening: removed debug objects and verbose logging
+ * The decisions live in permission_policy.js; this file is the adapter that
+ * reads the browser and Home Assistant and acts on them.
+ *
+ * v2.9.33 - Denied panels settle instead of navigating forever (issue #4)
  */
+import {
+  ACCESS_ALLOW,
+  ACCESS_REDIRECT,
+  decideInitAccess,
+  filterPanels,
+  isExemptPanel,
+  isPermitted,
+  panelIdFromPath,
+} from "./permission_policy.js";
+
 (function() {
   "use strict";
 
@@ -31,7 +44,63 @@
     }
   }
 
-  const PERM_DENY = 0;
+  // One init-time redirect per browsing session. location.replace() destroys
+  // the JS context, so the marker has to outlive the document — a variable
+  // cannot, sessionStorage can. Without this, a redirect that Home Assistant
+  // reroutes away from lands on another denied panel and redirects again.
+  const REDIRECT_MARKER = "ha_permission_manager.init_redirect";
+
+  /**
+   * Whether this session has already spent its redirect.
+   * Storage can be unavailable (private mode, blocked site data); treat that
+   * as spent, because a redirect we cannot record is a redirect that loops.
+   */
+  function isRedirectSpent() {
+    try {
+      return window.sessionStorage.getItem(REDIRECT_MARKER) !== null;
+    } catch (err) {
+      return true;
+    }
+  }
+
+  /** Record the redirect. Returns false when it could not be recorded. */
+  function spendRedirect() {
+    try {
+      window.sessionStorage.setItem(REDIRECT_MARKER, "1");
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  /** Hand the redirect back, once a page has settled somewhere permitted. */
+  function releaseRedirect() {
+    try {
+      window.sessionStorage.removeItem(REDIRECT_MARKER);
+    } catch (err) {
+      // Nothing to release if there is no storage to release it from.
+    }
+  }
+
+  /**
+   * Panel ids Home Assistant would treat as this user's default, best first.
+   * Mirrors getDefaultPanelUrlPath() in the HA frontend, which has moved
+   * between hass properties across versions.
+   */
+  function readDefaultPanels(hass) {
+    const ids = [
+      hass?.defaultPanel,
+      hass?.userData?.default_panel,
+      hass?.systemData?.default_panel,
+    ];
+    try {
+      const stored = window.localStorage.getItem("defaultPanel");
+      if (stored) ids.push(JSON.parse(stored));
+    } catch (err) {
+      // Unavailable or not JSON — the policy's own fallbacks cover it.
+    }
+    return ids.filter((id) => typeof id === "string" && id.length > 0);
+  }
 
   // Sidebar title translations
   const SIDEBAR_TITLES = {
@@ -171,36 +240,14 @@
       return;
     }
 
-    // Core panels that should NEVER be hidden
-    // - profile: user needs access to logout
-    const ALWAYS_VISIBLE_PANELS = ["profile"];
-
-    // For non-admin users, filter panels
-    // ONLY hide panels that are explicitly set to 0 (DENY)
-    // All other panels (undefined, 1, 2, 3) are shown
-    const filteredPanels = {};
-    let hiddenCount = 0;
-    const hiddenPanels = [];
-
-    for (const [panelId, panel] of Object.entries(originalPanels)) {
-      // Never hide core panels like profile
-      if (ALWAYS_VISIBLE_PANELS.includes(panelId)) {
-        filteredPanels[panelId] = panel;
-        continue;
-      }
-
-      const level = permissions[panelId];
-
-      // Fail-secure: only show panels with explicit permission > 0
-      // Hide panels that are undefined or explicitly set to 0
-      if (level !== undefined && level > PERM_DENY) {
-        filteredPanels[panelId] = panel;
-      } else {
-        // undefined or 0 = hide
-        hiddenPanels.push(panelId);
-        hiddenCount++;
-      }
-    }
+    // For non-admin users: keep only what is explicitly granted, plus the
+    // hidden anchors Home Assistant's router needs to resolve this URL and its
+    // own default panel without redirecting or throwing.
+    const { panels: filteredPanels } = filterPanels({
+      panels: originalPanels,
+      permissions,
+      currentPanel: panelIdFromPath(window.location.pathname),
+    });
 
     // Apply filtered panels
     haMain.hass = { ...haMain.hass, panels: filteredPanels };
@@ -217,37 +264,13 @@
     }
 
     const { permissions } = await fetchPermissions();
+    const currentPanel = panelIdFromPath(window.location.pathname);
 
-    const path = window.location.pathname;
-
-    // Handle root path as lovelace - always allow access (content will be filtered)
-    if (path === "/" || path === "") {
-      hideAccessDenied();
-      return;
-    }
-
-    const match = path.match(/^\/([^\/]+)/);
-    if (!match) {
-      hideAccessDenied();
-      return;
-    }
-
-    const currentPanel = match[1];
-
-    // Skip system paths and always-accessible panels
-    if (["local", "api", "auth", "static", "frontend_latest", "frontend_es5", "_my_redirect", "profile"].includes(currentPanel)) {
-      hideAccessDenied();
-      return;
-    }
-
-    let panelToCheck = currentPanel;
-
-    // Fail-secure: only allow if explicitly granted (matches sidebar filtering logic)
-    const level = permissions[panelToCheck];
-    if (level !== undefined && level > PERM_DENY) {
+    // A path that names no panel (the root) and the system paths carry no
+    // Permission; everything else is fail-secure.
+    if (isExemptPanel(currentPanel) || isPermitted(permissions, currentPanel)) {
       hideAccessDenied();
     } else {
-      // undefined or 0 = deny access
       showAccessDenied();
     }
   }
@@ -390,15 +413,28 @@
     // Listen for lovelace dashboard changes (create/delete)
     hass.connection.subscribeEvents(async (event) => {
       const action = event.data?.action;
+      const urlPath = event.data?.url_path;
 
       if (action === "create" || action === "delete") {
         // Wait a bit for backend to update permissions
         await new Promise(r => setTimeout(r, 500));
 
-        // Refresh originalPanels from current hass.panels
+        // Keep the unfiltered baseline in step with the dashboard that
+        // changed. Not a wholesale re-copy: hass.panels is the filtered map by
+        // now, so copying it would bake the filtering — and the hidden anchor —
+        // into the baseline that filtering is applied to. Additions come from
+        // the live map, and the one deletion comes from the event.
         const haMain = document.querySelector("home-assistant");
-        if (haMain && haMain.hass && haMain.hass.panels) {
-          originalPanels = JSON.parse(JSON.stringify(haMain.hass.panels));
+        if (originalPanels) {
+          if (action === "delete" && urlPath) {
+            delete originalPanels[urlPath];
+          } else if (haMain?.hass?.panels) {
+            for (const [panelId, panel] of Object.entries(haMain.hass.panels)) {
+              if (!originalPanels[panelId]) {
+                originalPanels[panelId] = JSON.parse(JSON.stringify(panel));
+              }
+            }
+          }
         }
 
         // Re-apply filter with new permissions
@@ -664,36 +700,31 @@
 
     // Redirect away from restricted panel BEFORE filtering hass.panels
     // This prevents partial-panel-resolver from getting stuck with _initialLoadDone=false
-    if (!isAdmin) {
-      const path = window.location.pathname;
-      const match = path.match(/^\/([^\/]+)/);
-      if (match) {
-        const currentPanel = match[1];
-        const skipPanels = ["local", "api", "auth", "static", "frontend_latest",
-                            "frontend_es5", "_my_redirect", "profile"];
-        if (!skipPanels.includes(currentPanel)) {
-          const level = initPerms[currentPanel];
-          if (level === undefined || level === PERM_DENY) {
-            // Only redirect somewhere this user may actually go. The default
-            // panel is very often denied too, and redirecting to a denied panel
-            // bounces straight back into this branch — an infinite replace()
-            // loop that leaves the user staring at a blank page, locked out of
-            // even the panels they DO have access to. When there is nowhere
-            // safe to send them, fall through: applySidebarFilter() and
-            // checkCurrentPanelAccess() then render the Access Denied page.
-            const defaultPanel = hass?.defaultPanel || "lovelace";
-            const defaultLevel = initPerms[defaultPanel];
-            const canRedirect =
-              defaultPanel !== currentPanel &&
-              defaultLevel !== undefined &&
-              defaultLevel > PERM_DENY;
-            if (canRedirect) {
-              window.location.replace("/" + defaultPanel);
-              return; // Stop init — page will reload on allowed panel
-            }
-          }
-        }
+    if (isAdmin) {
+      releaseRedirect();
+    } else {
+      const decision = decideInitAccess({
+        currentPanel: panelIdFromPath(window.location.pathname),
+        permissions: initPerms,
+        panels: document.querySelector("home-assistant")?.hass?.panels || hass?.panels,
+        defaultPanels: readDefaultPanels(hass),
+        redirectSpent: isRedirectSpent(),
+      });
+
+      if (decision.action === ACCESS_REDIRECT && spendRedirect()) {
+        window.location.replace("/" + decision.target);
+        return; // Stop init — page will reload on allowed panel
       }
+
+      if (decision.action === ACCESS_ALLOW) {
+        // Settled somewhere permitted, so this session may redirect again.
+        releaseRedirect();
+      }
+
+      // A denial falls through on purpose. applySidebarFilter() and
+      // checkCurrentPanelAccess() then render the Access Denied page over an
+      // intact sidebar, and no further redirect is attempted — whatever Home
+      // Assistant does to the URL afterwards.
     }
 
     await applySidebarFilter();

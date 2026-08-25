@@ -1,5 +1,45 @@
 # Changelog
 
+## v2.0.1 — 2026-08-25
+
+### Fixed
+
+- **A Closed panel could leave the page navigating forever.** v2.0.0 stopped the
+  redirect from a denied panel when the destination was denied too, but not when
+  Home Assistant did not serve the destination at all. Home Assistant's own
+  default dashboard is `home`, and it rewrites `/lovelace` to `/home` on
+  instances with no legacy overview — so a user granted `panel_lovelace` was sent
+  to `/lovelace`, rerouted to `/home`, denied there, and sent to `/lovelace`
+  again: 85 `location.replace()` calls in 25 seconds on the reported instance.
+  A redirect destination now has to be a panel Home Assistant actually serves,
+  and the redirect is self-limiting — one browsing session issues at most one
+  init-time redirect, handed back only once a page settles somewhere permitted.
+  No arrangement of Permission levels or dashboard routing can loop.
+- **The frontend threw `Cannot read properties of undefined (reading 'url_path')`
+  repeatedly** while a non-admin sat on a Closed panel. Filtering the panel out of
+  `hass.panels` left Home Assistant's router with no route for the current URL and
+  nothing to resolve its default panel to. The panel being routed to now stays in
+  the map as an anchor hidden from the sidebar, and Home Assistant's own
+  `notfound` panel — which it never lists in the sidebar — is always kept so its
+  default-panel lookup has somewhere to land. The Access Denied Filter still
+  covers the anchored panel's content, and a user with every panel Closed still
+  sees a sidebar with no panels in it.
+
+### Added
+
+- `frontend/permission_policy.js` — the panel-level Permission decisions as pure
+  functions, unit tested in `tests/permission_policy.test.mjs`
+  (`node --test tests/permission_policy.test.mjs`).
+
+### Known trade-off
+
+Keeping the Closed panel routable means Home Assistant now mounts it and the
+Access Denied Filter covers it, where before it was never mounted at all. The
+panel's markup is therefore present in the DOM behind the Filter. The Filters
+have always been a way to hide what a user has no business seeing, not a
+security boundary — Home Assistant's own auth and this integration's backend
+are what actually enforce access — but the stable page costs this much.
+
 ## v2.0.0 — 2026-08-24
 
 The three integrations in this repo are now one.
