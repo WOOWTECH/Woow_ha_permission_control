@@ -66,12 +66,43 @@
   live-instance suites are deliberately not in it; they need a Home Assistant to
   point at.
 
+- `tests/verify_issue_9.py` — drives a real browser against a running instance
+  and makes the version skew happen on purpose, by serving an older
+  `permission_policy.js` at the unversioned URL a release asks for. Read-only;
+  it never writes a Permission.
+
+### Verified
+
+Deployed to 192.168.2.6 (HA 2026.7.2), restarted, and driven as both identities.
+
+- **The defect reproduces, which it never had before.** On v2.0.3, with one
+  older `permission_policy.js` served at the unversioned URL, the non-admin's
+  `hass.panels` went from 5 panels to 28. Twenty-three panels the Filter should
+  have hidden were offered, no Access Denied overlay appeared, and the only
+  trace was one console line. Silent, and open.
+- **Every asset is served with no `Cache-Control` header at all** — only an
+  `ETag`. What a browser keeps is entirely up to its own heuristics, so the
+  version query was the only thing standing between a release and a stale
+  module. That was argued from the code before; it is measured now.
+- **On v2.0.4 the same stale copy is never fetched.** The Filters ask for
+  `permission_policy.js?v=2.0.4`, so the copy sitting at the unversioned URL is
+  a cache entry nothing consults. Panels back to 5, Access Denied present.
+- **The three registered assets are injected as `?v=2.0.4`**, `sidebar-title.js`
+  included, which is the timestamp change taking effect.
+- **No regression.** `tests/verify_issue_10.py` reports the same behaviour as
+  v2.0.3: the denied Dashboard hidden, exactly one message, no stuck overlay,
+  zero console errors as admin. Both panels render after their `lit.js` import
+  moved from static to dynamic, with no module or Lit errors.
+
 ### Still open
 
-- **The Filters fail open.** This release removes one way the modules can fail
-  to evaluate and makes one narrow case audible; it does not change what happens
-  when they do fail. A module-level failure still leaves Home Assistant entirely
-  unfiltered. Issue #9 raises that as a separate decision.
+- **The Filters fail open.** Serving the same broken module at the URL v2.0.4
+  *does* ask for still leaks the same 23 panels — measured, not argued. No cache
+  buster can prevent that. The page is now covered while it happens, because a
+  failed import leaves the loading overlay up at `opacity: 1`, so the failure is
+  a page nobody can use rather than a page that looks normal. That is a side
+  effect of moving the overlay, not a sentinel, and it is not fail-closed.
+  Issue #9 raises the real question as a separate decision.
 
 ## v2.0.3 — 2026-08-25
 

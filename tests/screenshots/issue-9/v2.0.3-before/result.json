@@ -1,0 +1,87 @@
+{
+  "control": {
+    "path": "/home/overview",
+    "hassReady": true,
+    "panelCount": 5,
+    "panelIds": [
+      "energy",
+      "ha-control-panel",
+      "home",
+      "notfound",
+      "profile"
+    ],
+    "deniedPanelStillOffered": true,
+    "accessDeniedPresent": true,
+    "huiRootPresent": true,
+    "loadingOverlayPresent": false,
+    "loadingOverlayOpacity": null,
+    "staleServed": [],
+    "policyRequests": [
+      "http://192.168.2.6:8123/ha_permission_manager_frontend/permission_policy.js"
+    ],
+    "errors": [
+      "Object",
+      "Cannot read properties of undefined (reading 'path')",
+      "Cannot read properties of undefined (reading 'path')",
+      "Object",
+      "Object",
+      "Object",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "filterWarnings": []
+  },
+  "stale": {
+    "path": "/home",
+    "hassReady": true,
+    "panelCount": 28,
+    "panelIds": [
+      "_my_redirect",
+      "app",
+      "climate",
+      "dashboard-simon",
+      "energy",
+      "erv-v2",
+      "ha-asset-record",
+      "ha-control-panel",
+      "ha-finance",
+      "ha-health-record",
+      "ha-note-record",
+      "history",
+      "home",
+      "light",
+      "logbook",
+      "lovelace",
+      "maintenance",
+      "map",
+      "media-browser",
+      "notfound",
+      "profile",
+      "security",
+      "todo",
+      "woow-blueprints",
+      "woow_dmx",
+      "woow_knx",
+      "woow_modbus",
+      "woow_multi_protocol"
+    ],
+    "deniedPanelStillOffered": true,
+    "accessDeniedPresent": false,
+    "huiRootPresent": false,
+    "loadingOverlayPresent": false,
+    "loadingOverlayOpacity": null,
+    "staleServed": [
+      "http://192.168.2.6:8123/ha_permission_manager_frontend/permission_policy.js"
+    ],
+    "policyRequests": [
+      "http://192.168.2.6:8123/ha_permission_manager_frontend/permission_policy.js"
+    ],
+    "errors": [
+      "The requested module './permission_policy.js' does not provide an export named 'panelsEqual'",
+      "Object"
+    ],
+    "filterWarnings": [
+      "[LovelaceFilter] /home is denied for this user, but no <hui-root> was found on the page, so its content has not been hidden. Home Assistant's element names have most likely changed; until this Filter is taught the new one, the Access Denied overlay is the only layer covering this page."
+    ]
+  }
+}

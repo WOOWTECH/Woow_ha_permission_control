@@ -12,6 +12,16 @@ a missing — `permission_policy.js` while loading a fresh
 non-admin sees every panel and no Access Denied overlay. Of the ways this
 integration can break, that is the worst direction: it fails open.
 
+The issue said this had not been reproduced on a live instance. It has now, on
+192.168.2.6 (HA 2026.7.2), by `tests/verify_issue_9.py`. Two measurements
+matter. First, every asset under `/ha_permission_manager_frontend/` is served
+with **no `Cache-Control` header at all** — only an `ETag` — so what a browser
+keeps is entirely up to its own heuristics. Second, with one older
+`permission_policy.js` served at the unversioned URL v2.0.3 asks for, the
+non-admin's `hass.panels` went from 5 panels to 28. Twenty-three panels the
+Filter should have hidden were offered, no Access Denied overlay appeared, and
+the only trace was one line in the console. Silent, and open.
+
 ## The decision
 
 **`PANEL_VERSION` is the only cache buster, and a module propagates it.**
@@ -102,11 +112,21 @@ two exceptions is a rule nobody can check.
 ## What this decision does not cover
 
 **The Filters still fail open.** This decision removes one way the modules can
-fail to evaluate, and makes one narrow case audible; it does not change what
-happens when they do fail. A module-level failure — a syntax error, a bad
-deploy, a browser that refuses the fetch — still leaves Home Assistant entirely
-unfiltered. Issue #9 raises that separately and it is still open: a small
+fail to evaluate; it does not change what happens when they do. Serving the same
+broken module at the URL v2.0.4 *does* ask for — a syntax error, a bad deploy, a
+fetch the browser refuses, none of which a cache buster can prevent — still
+leaks the same 23 panels into `hass.panels`.
+
+What did change, and only as a side effect: the page is now covered while that
+happens. Moving the loading overlay above the import means a failed import
+leaves the overlay up, measured at `opacity: 1`, because the code that removes
+it is inside the module that never ran. So the failure went from invisible to a
+page nobody can use. That is better than silence and it is not fail-closed —
+the panels are still there, behind the overlay, for anything that reads
+`hass.panels` rather than the screen. Do not mistake the overlay for the
+sentinel.
+
+Issue #9 raises the real question separately and it is still open: a small
 always-loaded classic script that hides the sidebar until a module reports
-itself alive would turn an invisible failure into a visible one. Until that
-exists, the buster is a way of making the failure rarer, not a way of making it
-safe.
+itself alive. Until that exists, the buster is a way of making the failure
+rarer, not a way of making it safe.
