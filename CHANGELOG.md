@@ -73,11 +73,48 @@
   The mark itself is a pure-function concern and is tested as one in
   `tests/permission_policy.test.mjs`.
 
-### Not verified
+### Verified
 
-Neither mechanism was reproduced on a live instance before being fixed — issue
-#6 is explicit that both were read off the code — and neither fix has been
-driven in a browser. What Home Assistant does with either is still open.
+Deployed to 192.168.2.6 (HA 2026.7.2), restarted, and driven as the non-admin
+with the Control Panel Closed and no permitted redirect destination — the
+scenario issue #6 describes. `tests/verify_issue_6.py` watches the anchor's
+title over nine seconds rather than reading it once, because the defect is a
+*later* write undoing an earlier one. Read-only: the permission store was
+byte-identical before and after (`8c76507b…`), and the one Permission level the
+run needed was set and restored through the service API.
+
+- **Mechanism A reproduces on v2.0.5 and stops on v2.0.6.** On v2.0.5 the
+  anchor's title is `"控制面板"` from +13 ms and stays that way. On v2.0.6 it is
+  `null` across all 18 samples, with the anchor mark present throughout.
+
+- **Mechanism A's reported impact does not reproduce, on this Home Assistant.**
+  The issue predicts "a clickable sidebar entry for a panel they are denied".
+  There is none, on either release — because `show_in_sidebar: false` hides the
+  panel by itself. `tests/probe_show_in_sidebar.py` establishes that by flipping
+  one field at a time on a permitted panel: the row goes when the field is set,
+  comes back when it is restored, and goes again when the title is nulled
+  instead. Issue #6's premise that "`PanelInfo` has no `show_in_sidebar` field"
+  is wrong for HA 2026.7.2, so the anchor was hidden by one layer while the
+  other was being undone.
+
+- **Mechanism B is not fixed.** Navigating client-side from a denied
+  `/ha-control-panel` to a denied `/config`, Home Assistant rewrites the URL to
+  `/notfound/0` before the navigation hooks fire — so the recompute reads
+  `notfound`, which is exempt, and anchors nothing. The route for `config` is
+  absent on v2.0.6 exactly as on v2.0.5. What did change: the stale anchor for
+  the panel the document loaded with is now dropped. `docs/adr/0008` records the
+  measurement and what closing the window would take.
+
+- **Console errors are unchanged at 1**, the v2.0.5+ baseline.
+
+### Found while verifying, not fixed here
+
+Measured while Home Assistant was still finishing its startup, the non-admin's
+`hass.panels` held all **28** of the instance's panels instead of the filtered
+4, with the full sidebar rendered. Home Assistant had replaced the map wholesale
+and nothing put the filtering back. That is issue #12 — "the Filters fail open"
+— caught in the act, it predates this change, and it is more serious than either
+mechanism above.
 
 ## v2.0.5 — 2026-08-26
 

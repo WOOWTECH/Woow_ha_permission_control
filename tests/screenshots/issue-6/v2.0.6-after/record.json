@@ -1,0 +1,244 @@
+{
+  "label": "v2.0.6-after",
+  "identity": "nonadmin",
+  "url": "http://192.168.2.6:8123",
+  "firstPanel": "ha-control-panel",
+  "secondPanel": "config",
+  "token": {
+    "http": 200,
+    "expires": "2036-08-22"
+  },
+  "servedVersions": [
+    "2.0.6"
+  ],
+  "onLoad": {
+    "url": "/ha-control-panel",
+    "panelIds": [
+      "energy",
+      "ha-control-panel",
+      "notfound",
+      "profile"
+    ],
+    "first": {
+      "present": true,
+      "title": null,
+      "show_in_sidebar": false,
+      "anchored": true
+    },
+    "second": {
+      "present": false
+    },
+    "titleWriterPanels": [
+      {
+        "id": "ha_permission_manager",
+        "present": false
+      },
+      {
+        "id": "ha-control-panel",
+        "present": true,
+        "title": null,
+        "show_in_sidebar": false,
+        "anchored": true
+      }
+    ],
+    "sidebarRows": [
+      {
+        "href": "/profile",
+        "text": "test-user"
+      }
+    ],
+    "sidebarFound": true,
+    "sidebarHasShadowRoot": true,
+    "sidebarText": "Home Assistant 能源 1 通知提示 1 test-user",
+    "accessDenied": true,
+    "sidebarNamesFirst": false,
+    "sidebarNamesSecond": false
+  },
+  "titleSamples": [
+    {
+      "atMs": 10,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 518,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 1033,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 1547,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 2070,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 2578,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 3091,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 3603,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 4122,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 4639,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 5149,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 5660,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 6173,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 6706,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 7228,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 7735,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 8242,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 8771,
+      "title": null,
+      "anchored": true,
+      "panelCount": 4,
+      "sidebarNamesFirst": false
+    }
+  ],
+  "titleEverRestored": false,
+  "sidebarEverNamedIt": false,
+  "navigatedTo": "/config",
+  "afterNavigation": {
+    "url": "/notfound/0",
+    "panelIds": [
+      "energy",
+      "notfound",
+      "profile"
+    ],
+    "first": {
+      "present": false
+    },
+    "second": {
+      "present": false
+    },
+    "titleWriterPanels": [
+      {
+        "id": "ha_permission_manager",
+        "present": false
+      },
+      {
+        "id": "ha-control-panel",
+        "present": false
+      }
+    ],
+    "sidebarRows": [
+      {
+        "href": "/profile",
+        "text": "test-user"
+      }
+    ],
+    "sidebarFound": true,
+    "sidebarHasShadowRoot": true,
+    "sidebarText": "Home Assistant 能源 1 通知提示 1 test-user",
+    "accessDenied": false,
+    "sidebarNamesFirst": false,
+    "sidebarNamesSecond": false
+  },
+  "probe": {
+    "replaces": [],
+    "consoleErrors": [],
+    "rejections": [
+      "Unauthorized",
+      "Cannot read properties of null (reading '_panel_custom')",
+      "this._layoutElement.setConfig is not a function",
+      "this._layoutElement.setConfig is not a function"
+    ],
+    "replaceHookFailed": "TypeError: Cannot redefine property: replace"
+  },
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleErrorCount": 1,
+  "verdict": {
+    "mechanismA_hidingHeld": true,
+    "mechanismB_anchorFollowedRoute": false,
+    "mechanismB_staleAnchorDropped": true
+  }
+}

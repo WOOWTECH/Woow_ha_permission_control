@@ -1,0 +1,33 @@
+{
+  "panel": "energy",
+  "steps": [
+    {
+      "stage": "baseline",
+      "applied": null,
+      "sidebarText": "Home Assistant 能源 2 通知提示 2 test-user"
+    },
+    {
+      "stage": "show_in_sidebar=false",
+      "applied": {
+        "show_in_sidebar": false,
+        "title": "energy"
+      },
+      "sidebarText": "Home Assistant 2 通知提示 2 test-user"
+    },
+    {
+      "stage": "show_in_sidebar=true (restored)",
+      "applied": {
+        "show_in_sidebar": true,
+        "title": "energy"
+      },
+      "sidebarText": "Home Assistant 能源 2 通知提示 2 test-user"
+    },
+    {
+      "stage": "title=null",
+      "applied": {
+        "title": null
+      },
+      "sidebarText": "Home Assistant 2 通知提示 2 test-user"
+    }
+  ]
+}

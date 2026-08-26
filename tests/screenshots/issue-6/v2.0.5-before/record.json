@@ -1,0 +1,215 @@
+{
+  "label": "v2.0.5-before",
+  "identity": "nonadmin",
+  "url": "http://192.168.2.6:8123",
+  "firstPanel": "ha-control-panel",
+  "secondPanel": "config",
+  "token": {
+    "http": 200,
+    "expires": "2036-08-22"
+  },
+  "servedVersions": [
+    "2.0.5"
+  ],
+  "onLoad": {
+    "url": "/ha-control-panel",
+    "panelIds": [
+      "energy",
+      "ha-control-panel",
+      "notfound",
+      "profile"
+    ],
+    "first": {
+      "present": true,
+      "title": "控制面板",
+      "show_in_sidebar": false,
+      "anchored": false
+    },
+    "second": {
+      "present": false
+    },
+    "titleWriterPanels": [
+      {
+        "id": "ha_permission_manager",
+        "present": false
+      },
+      {
+        "id": "ha-control-panel",
+        "present": true,
+        "title": "控制面板",
+        "show_in_sidebar": false,
+        "anchored": false
+      }
+    ],
+    "sidebarRows": [
+      {
+        "href": "/profile",
+        "text": "test-user"
+      }
+    ],
+    "sidebarFound": true,
+    "sidebarHasShadowRoot": true,
+    "sidebarText": "Home Assistant 能源 2 通知提示 2 test-user",
+    "accessDenied": true,
+    "sidebarNamesFirst": false,
+    "sidebarNamesSecond": false
+  },
+  "titleSamples": [
+    {
+      "atMs": 20,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 538,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 1052,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 1567,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 2080,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 2594,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 3139,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 3650,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 4171,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 4685,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 5210,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 5727,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 6281,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 6812,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 7333,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 7838,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 8360,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    },
+    {
+      "atMs": 8891,
+      "title": "控制面板",
+      "sidebarNamesFirst": false
+    }
+  ],
+  "titleEverRestored": true,
+  "sidebarEverNamedIt": false,
+  "navigatedTo": "/config",
+  "afterNavigation": {
+    "url": "/notfound/0",
+    "panelIds": [
+      "energy",
+      "ha-control-panel",
+      "notfound",
+      "profile"
+    ],
+    "first": {
+      "present": true,
+      "title": "控制面板",
+      "show_in_sidebar": false,
+      "anchored": false
+    },
+    "second": {
+      "present": false
+    },
+    "titleWriterPanels": [
+      {
+        "id": "ha_permission_manager",
+        "present": false
+      },
+      {
+        "id": "ha-control-panel",
+        "present": true,
+        "title": "控制面板",
+        "show_in_sidebar": false,
+        "anchored": false
+      }
+    ],
+    "sidebarRows": [
+      {
+        "href": "/profile",
+        "text": "test-user"
+      }
+    ],
+    "sidebarFound": true,
+    "sidebarHasShadowRoot": true,
+    "sidebarText": "Home Assistant 能源 2 通知提示 2 test-user",
+    "accessDenied": false,
+    "sidebarNamesFirst": false,
+    "sidebarNamesSecond": false
+  },
+  "probe": {
+    "replaces": [],
+    "consoleErrors": [],
+    "rejections": [
+      "Unauthorized",
+      "Cannot read properties of null (reading '_panel_custom')",
+      "this._layoutElement.setConfig is not a function",
+      "this._layoutElement.setConfig is not a function"
+    ],
+    "replaceHookFailed": "TypeError: Cannot redefine property: replace"
+  },
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleErrorCount": 1,
+  "verdict": {
+    "mechanismA_hidingHeld": false,
+    "mechanismB_anchorFollowedRoute": false,
+    "mechanismB_staleAnchorDropped": false
+  }
+}

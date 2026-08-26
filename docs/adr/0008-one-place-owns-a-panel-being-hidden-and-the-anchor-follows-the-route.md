@@ -9,12 +9,21 @@ policy module had already made correctly.
 
 ## The hiding had three owners
 
-The anchor is hidden by having **no title** — `PanelInfo` carries no field for
-hiding a panel, and Home Assistant's sidebar drops a panel whose `title` is
-falsy unless it is that user's own default. So `title: null` was the whole of
-the mechanism, and `show_in_sidebar: false` alongside it was a belief about
-Home Assistant that was never true. (It is still set. Two releases have shipped
-it, nothing reads it, and removing it changes a serialised map for no gain.)
+The anchor is hidden **twice**: by having no title, and by `show_in_sidebar:
+false`. Issue #6 says the second of those is a belief about Home Assistant that
+was never true — "`PanelInfo` has no `show_in_sidebar` field … So `title: null`
+is the whole of the hiding."
+
+**Measured on HA 2026.7.2, that is wrong, and it matters.**
+`tests/probe_show_in_sidebar.py` flips one field at a time on a panel the user
+*is* permitted and watches its sidebar row: `show_in_sidebar: false` removes the
+row on its own and restoring the field brings it back, and `title: null` removes
+it on its own too. Either layer suffices on this release.
+
+That is why Mechanism A cost nothing a user could see. The title was being
+restored — measured, at +13 ms on v2.0.5 — and the sidebar still showed no row
+for the denied panel, because the other layer was doing the hiding by itself.
+The defect was real and the reported impact was not.
 
 Two other places in this integration write titles onto panels by id, and the
 ids they name are `ha_permission_manager` and `ha-control-panel` — this repo's
@@ -26,9 +35,11 @@ denied non-admin is anchored to:
 - `frontend/sidebar-title.js`, on a timer, in place on the panel object.
 
 So a non-admin with `ha-control-panel` Closed, loading `/ha-control-panel` with
-nowhere permitted to be redirected to, got the panel anchored, its title
-restored on the same page load, and a clickable sidebar entry for a panel they
-were denied — underneath the Access Denied Filter.
+nowhere permitted to be redirected to, got the panel anchored and its title
+restored on the same page load. On v2.0.5 that is `title: "控制面板"` from
++13 ms onward; on v2.0.6 it is `null` for the whole nine-second watch. What it
+did *not* get, on this Home Assistant, is the sidebar entry the issue predicts —
+see above.
 
 **The decision: `permission_policy.js` owns "this panel is hidden", and every
 place that is about to write a panel title asks it first.** The answer is a
@@ -75,35 +86,47 @@ halves. Each fetching for itself would have doubled what a navigation costs, on
 hooks that fire on every in-page link — the shape of the defect ADR-0007 records
 under the nested `pushState` wrappers.
 
-### This repairs the route; it does not get there first
+### This does not restore the route, and cannot — measured
 
 The hooks report a navigation that has **already happened**. The `pushState`
 wrapper calls Home Assistant's own `pushState` first and schedules the report
 after it, and `popstate` fires once the URL has changed;
-`tests/filter_lifecycle.test.mjs` pins that ordering. Home Assistant therefore
-routes against the map as it was, and the anchor goes back a settle delay and
-one `get_panel_permissions` round trip later.
+`tests/filter_lifecycle.test.mjs` pins that ordering.
 
-So what issue #6 describes as "the missing-route condition the anchor exists to
-prevent" is still entered on every client-side navigation into a denied panel.
-What changes is that it is now left: before this, the map stayed wrong until the
-next full page load. Whatever Home Assistant does with an unresolvable route —
-on 192.168.2.6 it rendered `notfound`, per ADR-0005 — it now does briefly rather
-than for the rest of the session.
+The first draft of this decision said the anchor therefore "goes back a settle
+delay and one round trip later". **It does not go back at all**, and the
+instance is what says so. Navigating client-side from a denied
+`/ha-control-panel` to a denied `/config` on 192.168.2.6:
 
-Closing the window means filtering **before** the navigation: recomputing off
+| | v2.0.5 | v2.0.6 |
+|---|---|---|
+| URL after the navigation | `/notfound/0` | `/notfound/0` |
+| route for `config` | absent | **still absent** |
+| stale `ha-control-panel` anchor | still there | **dropped** |
+
+Home Assistant does not leave the URL alone. It rewrites it to `/notfound/0`
+before the hook fires, and by then `panelIdFromPath()` reads `notfound`, which
+`isExemptPanel()` answers for — so the recompute anchors nothing. The
+information the anchor needs, *which panel the user asked for*, is gone by the
+time this code is allowed to run.
+
+So Mechanism B is **not fixed** in the sense issue #6 asks for. What v2.0.6
+actually changes is the other half: the map no longer carries a stale anchor for
+the panel the document loaded with. That is worth having — the map stops
+asserting a route that is no longer the user's — but it is not "the anchor
+follows the route", and the `url_path` crash class the issue is worried about is
+reached or not reached exactly as before.
+
+Closing it means filtering **before** the navigation: recomputing off
 permissions already held, synchronously, inside the `pushState` wrapper ahead of
-the call through. That is a different change — it needs a pre-navigation hook
-`installNavigationHooks()` does not have, it must work from cached permissions
-rather than a fetch, and `popstate` has no "before" at all, so the back button
-would keep the window regardless. It is not what issue #6 asked for; that issue
-asks to "recompute the anchor when the route changes — call
-`applySidebarFilter()` … from the same three hooks", which is what this is.
+the call through, so Home Assistant routes against a map that already holds the
+anchor. That needs a pre-navigation hook `installNavigationHooks()` does not
+have, and it must work from cached permissions rather than a fetch. `popstate`
+has no "before" at all, so the back button keeps the window regardless — which
+means even that design closes some of this and not all of it.
 
-The residual window is worth measuring on a live instance before it is worth
-closing. Whether it is visible at all depends on what Home Assistant renders in
-those few hundred milliseconds, and neither mechanism in issue #6 has been
-observed in a browser yet.
+That is a redesign, not an adjustment, and it is recorded on issue #6 rather
+than done here.
 
 ### Two things about `applyPanels()` that this leans on
 
@@ -184,9 +207,16 @@ the stale anchor sent the router to `notfound` first. With the anchor recomputed
 that obstacle is gone, and whether the case is reachable is an open question
 again — ADR-0005 says so itself.
 
-**Neither mechanism was reproduced on a live instance before being fixed.** The
-issue is explicit that both were read off the code. What a browser does with
-either is what a verification run has to answer.
+**Both mechanisms were reproduced on a live instance after the fact.** The issue
+is explicit that both were read off the code; `tests/verify_issue_6.py` points an
+instrument at each, and the records are in `tests/screenshots/issue-6/`. What the
+run also turned up is a third thing this decision does not address: measured
+while Home Assistant was still finishing its startup, the non-admin's
+`hass.panels` held all **28** of the instance's panels rather than the filtered
+4 — Home Assistant had replaced the map wholesale and nothing put the filtering
+back. That is issue #12, "the Filters fail open", caught in the act. It is not
+caused by this change and is not fixed by it, and it is a good deal more serious
+than either mechanism here.
 
 ## Tests
 

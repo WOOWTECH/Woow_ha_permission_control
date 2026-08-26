@@ -212,11 +212,17 @@ export function isAnchoredPanel(panel) {
 /**
  * A panel kept in hass.panels for routing only, hidden from the sidebar.
  *
- * The missing title is the whole of the hiding. Home Assistant's sidebar drops
- * a panel with no title, and `PanelInfo` carries no field for hiding one —
- * `show_in_sidebar` is set below because two releases of this integration have
- * shipped it and removing it changes a serialised map nothing reads, but no
- * Home Assistant version is known to honour it and none is relied on to.
+ * Two things hide it, and on HA 2026.7.2 **either one is sufficient**, measured
+ * on 192.168.2.6 by flipping each field on a panel the user is permitted and
+ * watching its sidebar row go and come back (tests/probe_show_in_sidebar.py).
+ * Issue #6 asserts the opposite — that `PanelInfo` has no `show_in_sidebar`
+ * field, so `title: null` is the whole of the hiding. That is not true of this
+ * release, and it is why Mechanism A cost no visible sidebar row: the title was
+ * being restored, and the other layer went on hiding the panel by itself.
+ *
+ * Both are still set, because a version that honours only one of them is
+ * exactly what the pair is insurance against, and the measurement above says
+ * which release honoured what — not which release will.
  *
  * The one place Home Assistant shows a panel regardless is its own default,
  * which then renders as a nameless row — a worse look than a name, but not the
