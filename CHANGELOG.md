@@ -1,5 +1,52 @@
 # Changelog
 
+## v2.0.7 — 2026-08-26
+
+### Fixed
+
+- **The loading overlay could strand an administrator on every page, with no
+  timeout.** `ha_sidebar_filter.js` puts an opaque, full-viewport,
+  click-swallowing overlay up synchronously above its own imports, and the only
+  code that takes it down is at the end of `init()` — past both dynamic imports,
+  a permissions fetch, a filter application and five subscriptions. Anything
+  that throws on that path left the overlay up for the life of the page.
+  Because it goes up before anyone knows who the user is, that covered
+  administrators too, including on the Permission Manager panel — the one screen
+  that could fix whatever caused it. Recovery was a hard reload with a cleared
+  cache, or SSH. Shipped in v2.0.4 as a side effect of moving the overlay above
+  the import while fixing #9.
+
+  An administrator's release now lives in the same synchronous block as the
+  overlay: a 100 ms poll for `hass.user`, which the Home Assistant frontend
+  populates whether or not this integration's modules ever evaluate. It depends
+  on nothing below the imports, and it cannot be missing when the overlay is
+  present. An administrator is handed the untouched baseline by
+  `applySidebarFilter()` anyway, so there is nothing for them to wait for.
+  Reported as issue #15.
+
+  The watch has no deadline — one would be racing a slow-but-healthy load and
+  would strand the administrator it exists to free — but after 30 seconds with
+  no `hass.user` it says so on the console, once, and keeps watching.
+
+  **A non-admin is left exactly as they are.** What the overlay should do for
+  them when the Filter never reports is issue #12's question, and answering it
+  here by accident is how the current behaviour arrived.
+
+### Added
+
+- `docs/adr/0009` records why the release sits above the imports rather than
+  anywhere more convenient, why the CSS deadman issue #15 also offers was
+  rejected — the timeout it needs is longer than the slowest healthy load, and
+  what it would then do to a non-admin is #12's decision — and why the removal
+  is outright rather than faded.
+
+- `tests/loading_overlay.test.mjs` slices the overlay block out of the shipped
+  file and evaluates it against a fake document, because that region cannot be
+  imported: it is the top of a module whose next statement is a top-level
+  `await import()`. Source-text invariants in the idiom of
+  `tests/frontend_assets.test.mjs` hold the two placement rules — all of it
+  above the first `await import(`, and no call to `removeLoadingOverlay()`.
+
 ## v2.0.6 — 2026-08-26
 
 ### Fixed

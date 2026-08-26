@@ -9,6 +9,7 @@
  * v2.9.34 - Everything this file pulls in is busted with it (issue #9)
  * v2.9.35 - A re-initialisation replaces its registrations (issue #5)
  * v2.9.36 - The routing anchor holds past the page load (issue #6)
+ * v2.9.37 - An administrator is never stranded behind the overlay (issue #15)
  */
 
 /** This module's cache buster, carried onto everything it pulls in (ADR-0006). */
@@ -33,10 +34,24 @@ if (!ASSET_VERSION_QUERY) {
 // above the import rather than inside the body below it. Pulling the policy in
 // is the first async work this file does, and covering the page across exactly
 // that kind of gap is the overlay's whole job.
-// Guard: only create if no overlay exists yet (prevents duplicate with lovelace filter)
-if (!document.getElementById("perm-loading-overlay")) {
+
+/** The overlay, and the one id it goes by. */
+const OVERLAY_ID = "perm-loading-overlay";
+
+// The release below removes the overlays it can find, and an overlay still
+// waiting on DOMContentLoaded is not one of them — it would be appended
+// afterwards, over an administrator the release had just freed. So the fact of
+// the release is written on the document rather than into a variable here: two
+// copies of this file, which two cache-buster queries on one page would be, are
+// two modules and one document.
+const OVERLAY_RELEASED_ATTR = "data-perm-overlay-released";
+
+// Guard: only create if no overlay exists yet. ha_lovelace_filter.js defers to
+// this file for the overlay, so the duplicate this prevents is this module
+// having been evaluated twice.
+if (!document.getElementById(OVERLAY_ID)) {
   const _loadingOverlay = document.createElement("div");
-  _loadingOverlay.id = "perm-loading-overlay";
+  _loadingOverlay.id = OVERLAY_ID;
   _loadingOverlay.style.cssText =
     "position:fixed;top:0;left:0;right:0;bottom:0;" +
     "z-index:9999;" +
@@ -49,10 +64,70 @@ if (!document.getElementById("perm-loading-overlay")) {
     document.body.appendChild(_loadingOverlay);
   } else {
     document.addEventListener("DOMContentLoaded", () => {
+      if (document.documentElement.hasAttribute(OVERLAY_RELEASED_ATTR)) return;
       document.body.appendChild(_loadingOverlay);
     });
   }
 }
+
+// The overlay goes up before anyone knows who the user is, and the only code
+// that takes it down is at the end of init() — past both imports, a permissions
+// fetch, a filter application and five subscriptions. Anything that throws on
+// that path leaves it up for the life of the page, with no timeout, and that
+// includes administrators: on every page, including the Permission Manager
+// panel, the one screen that could fix whatever caused it (issue #15).
+//
+// So an administrator's release lives up here, above the imports, and depends
+// on nothing below them — only on `hass.user`, which the Home Assistant
+// frontend populates on its own. There is nothing for an administrator to wait
+// for: applySidebarFilter() hands them the untouched baseline, so no panel of
+// theirs is ever hidden and none can be revealed too early.
+//
+// A non-admin is left exactly as they are today, on purpose. What the overlay
+// should do for them when the Filter never reports is issue #12's question, and
+// answering it here by accident is how the current behaviour arrived in v2.0.4.
+const OVERLAY_RELEASE_POLL_MS = 100;
+
+// How long a wait has to get before it is worth a console line, following
+// ADR-0005's rule that a Filter which cannot do its job says so. Nothing else
+// happens at this point: the watch goes on, because there is no deadline that
+// is both short enough to help and long enough to be safe. `waitForHass()`
+// gives up after 15 seconds, but its clock starts inside init(), after both
+// imports have resolved — a deadline here would be racing a slow-but-healthy
+// load and would strand the administrator it exists to free.
+const OVERLAY_RELEASE_SLOW_MS = 30000;
+let _overlayReleaseWaited = 0;
+let _overlayReleaseWarned = false;
+
+const _overlayReleaseWatch = setInterval(() => {
+  const user = document.querySelector("home-assistant")?.hass?.user;
+
+  if (user) {
+    // Who this is cannot change without the document being rebuilt, so this
+    // poll has asked its whole question either way.
+    clearInterval(_overlayReleaseWatch);
+    if (user.is_admin) {
+      // Recorded before the removal, so that an overlay this cannot see —
+      // one still waiting on DOMContentLoaded — reads it and stays down.
+      document.documentElement.setAttribute(OVERLAY_RELEASED_ATTR, "");
+      // Removed outright rather than faded: a fade needs a timer to finish the
+      // job, and code that does not run is the failure this exists to survive.
+      document.querySelectorAll("#" + OVERLAY_ID).forEach((el) => el.remove());
+    }
+    return;
+  }
+
+  _overlayReleaseWaited += OVERLAY_RELEASE_POLL_MS;
+  if (_overlayReleaseWaited >= OVERLAY_RELEASE_SLOW_MS && !_overlayReleaseWarned) {
+    _overlayReleaseWarned = true;
+    console.warn(
+      "[SidebarFilter] " + OVERLAY_RELEASE_SLOW_MS / 1000 + "s with no " +
+      "hass.user, so nobody knows yet whether this page belongs to an " +
+      "administrator and the loading overlay is still up. Still watching."
+    );
+  }
+}, OVERLAY_RELEASE_POLL_MS);
+// === END IMMEDIATE LOADING OVERLAY ===
 
 const {
   ACCESS_ALLOW,
