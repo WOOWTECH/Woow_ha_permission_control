@@ -15,6 +15,7 @@ import {
   ACCESS_REDIRECT,
   decideInitAccess,
   filterPanels,
+  isAnchoredPanel,
   isDashboardPath,
   isPermitted,
   panelIdFromPath,
@@ -262,6 +263,62 @@ test("filterPanels never removes the panel Home Assistant is routing to", () => 
   assert.equal(panels["ha-control-panel"].title, null);
 });
 
+test("an anchor says it is one, so nothing re-titles it back into view", () => {
+  // The missing title IS the hiding, and two other places in this integration
+  // write titles onto these very panels (issue #6, Mechanism A). They ask
+  // this, so that "hidden" has one owner rather than three opinions.
+  const { panels } = filterPanels({
+    panels: LIVE_PANELS,
+    permissions: { home: 1 },
+    currentPanel: "ha-control-panel",
+  });
+
+  assert.equal(isAnchoredPanel(panels["ha-control-panel"]), true);
+  assert.equal(
+    isAnchoredPanel(panels.home),
+    false,
+    "a panel kept because the user has a View level on it is an ordinary " +
+      "panel, and its title is the sidebar's to show and this integration's " +
+      "to translate",
+  );
+});
+
+test("the anchor mark is invisible to everything Home Assistant does with a panel", () => {
+  const { panels } = filterPanels({
+    panels: LIVE_PANELS,
+    permissions: {},
+    currentPanel: "ha-control-panel",
+  });
+  const anchor = panels["ha-control-panel"];
+
+  const plain = { ...LIVE_PANELS["ha-control-panel"], title: null, show_in_sidebar: false };
+
+  assert.deepEqual(
+    Object.keys(anchor),
+    Object.keys(plain),
+    "Home Assistant enumerates a panel's keys and serialises it; the mark " +
+      "must be neither a key nor a field",
+  );
+  assert.deepEqual(
+    Object.getOwnPropertyNames(anchor),
+    Object.getOwnPropertyNames(plain),
+    "and it must not be a non-enumerable string key either",
+  );
+  assert.equal(
+    JSON.stringify(anchor),
+    JSON.stringify(plain),
+    "panelsEqual() compares serialised maps, so a mark that serialised " +
+      "would make every re-filter look like a change",
+  );
+});
+
+test("nothing is anchored until filterPanels says so", () => {
+  assert.equal(isAnchoredPanel(LIVE_PANELS["ha-control-panel"]), false);
+  assert.equal(isAnchoredPanel({ title: null }), false, "a panel Home Assistant itself left untitled is not an anchor");
+  assert.equal(isAnchoredPanel(undefined), false);
+  assert.equal(isAnchoredPanel(null), false);
+});
+
 test("an anchor never carries the name of a panel the user was denied", () => {
   // Both hiding rules are set, because a Home Assistant version that honours
   // only one of them would otherwise leave the name on screen.
@@ -302,6 +359,38 @@ test("filterPanels adds no anchor when the current panel is granted", () => {
   assert.deepEqual(anchored, []);
   assert.equal(panels.home.title, "home");
   assert.equal(panels.home.show_in_sidebar, undefined);
+});
+
+test("the map built for one path holds no route for another", () => {
+  // Why the panel map has to be recomputed on a route change (issue #6,
+  // Mechanism B) rather than only re-checked for access. The anchor is the
+  // only reason a denied panel is routable at all, and it is built for one
+  // path — so the map that made /ha-control-panel routable is a map on which
+  // /config is exactly as missing as it ever was.
+  const atControlPanel = filterPanels({
+    panels: LIVE_PANELS,
+    permissions: {},
+    currentPanel: "ha-control-panel",
+  }).panels;
+  const atConfig = filterPanels({
+    panels: LIVE_PANELS,
+    permissions: {},
+    currentPanel: "config",
+  }).panels;
+
+  assert.ok(atControlPanel["ha-control-panel"], "routable where it was built");
+  assert.ok(
+    !atControlPanel.config,
+    "and not routable at the panel the browser navigates to next — which is " +
+      "the missing route the anchor exists to prevent",
+  );
+  assert.ok(atConfig.config, "recomputing at the new path restores it");
+  assert.equal(
+    panelsEqual(atControlPanel, atConfig),
+    false,
+    "so a navigation is a real change to hass.panels, not a no-op " +
+      "applyPanels() would skip",
+  );
 });
 
 test("filterPanels is deterministic, so re-applying it does not churn hass", () => {

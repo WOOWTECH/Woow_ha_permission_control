@@ -8,6 +8,7 @@
  * v2.9.33 - Denied panels settle instead of navigating forever (issue #4)
  * v2.9.34 - Everything this file pulls in is busted with it (issue #9)
  * v2.9.35 - A re-initialisation replaces its registrations (issue #5)
+ * v2.9.36 - The routing anchor holds past the page load (issue #6)
  */
 
 /** This module's cache buster, carried onto everything it pulls in (ADR-0006). */
@@ -58,6 +59,7 @@ const {
   ACCESS_REDIRECT,
   decideInitAccess,
   filterPanels,
+  isAnchoredPanel,
   isExemptPanel,
   isPermitted,
   panelIdFromPath,
@@ -290,8 +292,12 @@ const {
 
   /**
    * Apply sidebar filtering
+   *
+   * `fetchedPermissions` is a get_panel_permissions result the caller already
+   * has, so a route change can pay for one round trip rather than one per
+   * thing it does. Omitted, this fetches its own.
    */
-  async function applySidebarFilter() {
+  async function applySidebarFilter(fetchedPermissions) {
     const haMain = document.querySelector("home-assistant");
     if (!haMain || !haMain.hass) {
       return;
@@ -305,7 +311,8 @@ const {
     }
 
     // Fetch permissions from backend
-    const { permissions, is_admin } = await fetchPermissions();
+    const { permissions, is_admin } =
+      fetchedPermissions || (await fetchPermissions());
 
     // Admin users see all panels
     if (is_admin) {
@@ -344,13 +351,13 @@ const {
    * Check current URL and block access if denied
    * v2.9.26: Added hideAccessDenied() call when panel is accessible
    */
-  async function checkCurrentPanelAccess() {
+  async function checkCurrentPanelAccess(fetchedPermissions) {
     if (isAdmin) {
       hideAccessDenied(); // Admin 用戶，確保移除 Access Denied
       return;
     }
 
-    const { permissions } = await fetchPermissions();
+    const { permissions } = fetchedPermissions || (await fetchPermissions());
     const currentPanel = panelIdFromPath(window.location.pathname);
 
     // A path that names no panel (the root) and the system paths carry no
@@ -642,6 +649,12 @@ const {
       const panelId = href.replace(/^\//, "");
 
       if (panelsToTranslate.includes(panelId) && SIDEBAR_TITLES[panelId]) {
+        // The same rule as updateSidebarTitleViaHass(). Home Assistant shows
+        // an untitled panel in one case — when it is this user's own default —
+        // and it renders as a nameless row. Naming that row is the sidebar
+        // entry issue #6 is about, reached the other way round.
+        if (isAnchoredPanel(hass.panels?.[panelId])) return;
+
         const title = isZh ? SIDEBAR_TITLES[panelId].zh : SIDEBAR_TITLES[panelId].en;
 
         // Try multiple selectors for text element (HA version compatibility)
@@ -673,7 +686,6 @@ const {
 
     const isZh = lang && lang.startsWith("zh");
     const panelsToUpdate = ["ha_permission_manager", "ha-control-panel"];
-    let anyUpdated = false;
 
     // Create a copy of panels to modify
     const updatedPanels = { ...haMain.hass.panels };
@@ -682,19 +694,24 @@ const {
       const panel = updatedPanels[panelId];
       if (!panel || !SIDEBAR_TITLES[panelId]) continue;
 
-      const title = isZh ? SIDEBAR_TITLES[panelId].zh : SIDEBAR_TITLES[panelId].en;
+      // An anchored panel is one this user was denied, kept in hass.panels so
+      // Home Assistant's router has a route for the URL and hidden by having
+      // no title. Translating that missing title is what put the name of a
+      // denied panel back into the sidebar, on the same page load that hid it
+      // (issue #6, Mechanism A). permission_policy.js owns the answer.
+      if (isAnchoredPanel(panel)) continue;
 
-      // Only update if title actually changed
-      if (panel.title !== title) {
-        updatedPanels[panelId] = { ...panel, title: title };
-        anyUpdated = true;
-      }
+      updatedPanels[panelId] = {
+        ...panel,
+        title: isZh ? SIDEBAR_TITLES[panelId].zh : SIDEBAR_TITLES[panelId].en,
+      };
     }
 
-    // Trigger reactive update by assigning new hass object if any panel was updated
-    if (anyUpdated) {
-      haMain.hass = { ...haMain.hass, panels: updatedPanels };
-    }
+    // Through applyPanels() rather than an assignment of its own: it skips a
+    // map that says the same thing as the one already on hass, and it marks
+    // what it does put there, so that a reset never reads a baseline out of a
+    // map this integration produced (ADR-0007).
+    applyPanels(haMain, updatedPanels);
 
     return true;
   }
@@ -724,6 +741,41 @@ const {
   }
 
   /**
+   * What a client-side route change costs, and what has to be redone.
+   *
+   * filterPanels() anchors the panel the URL named *when it ran*, so after a
+   * navigation the anchor still names the panel the document loaded with, and
+   * the newly routed denied panel is the one absent from hass.panels — the
+   * missing route the anchor exists to prevent (issue #6, Mechanism B). The
+   * map is therefore recomputed against the URL as it now is, not merely
+   * re-checked for access.
+   *
+   * This repairs the route; it does not get there first. The pushState
+   * wrapper calls Home Assistant's own pushState *before* it schedules this,
+   * and popstate fires once the URL has already changed — so Home Assistant
+   * routes against the map as it was, and the anchor goes back a settle delay
+   * and one round trip later. What the browser shows in between is whatever
+   * Home Assistant does with a route it cannot resolve. Closing that window
+   * means filtering before the navigation, off permissions already held;
+   * ADR-0008 records why that is not what this does.
+   *
+   * Replacing hass.panels is what makes Home Assistant rebuild the page
+   * element, and a rebuild mid-route is what makes its router read
+   * `route.path` off undefined. Being late is what makes this safe: by the
+   * time it runs the router has settled, and applyPanels() skips a map that
+   * says the same thing as the one already there.
+   *
+   * One fetch feeds both halves. These hooks fire on every in-page link, and
+   * two round trips per navigation is the shape of the cost ADR-0007 records
+   * under the nested pushState wrappers.
+   */
+  async function onRouteChanged() {
+    const fetchedPermissions = await fetchPermissions();
+    await applySidebarFilter(fetchedPermissions);
+    await checkCurrentPanelAccess(fetchedPermissions);
+  }
+
+  /**
    * Watch for navigation
    *
    * Once per document, not once per run: the window this hooks outlives the
@@ -732,7 +784,7 @@ const {
   function watchNavigation() {
     installNavigationHooks({
       window,
-      onNavigate: () => checkCurrentPanelAccess(),
+      onNavigate: () => onRouteChanged(),
     });
   }
 

@@ -1,5 +1,84 @@
 # Changelog
 
+## v2.0.6 — 2026-08-26
+
+### Fixed
+
+- **The routing anchor's hiding was undone on the same page load that applied
+  it.** `filterPanels()` keeps the panel Home Assistant is routing to in
+  `hass.panels` as a hidden anchor, and the hiding is that the anchor has no
+  title — `PanelInfo` carries no field for hiding a panel, and the sidebar drops
+  one whose title is missing. Two other places in this integration write titles
+  onto panels by id, and the ids they name are this repo's own two panels:
+  `updateSidebarTitleViaHass()`, called by `init()` immediately after the
+  filtering, and `frontend/sidebar-title.js`, on a timer. So a non-admin with
+  Control Panel Closed, loading `/ha-control-panel` with nowhere permitted to be
+  sent, got a clickable sidebar entry for a panel they were denied, underneath
+  the Access Denied Filter. `permission_policy.js` now marks an anchor and both
+  writers ask before they write. Reported as issue #6, Mechanism A.
+
+- **The anchor named the panel the document loaded with, and was never
+  recomputed.** The navigation hooks re-checked access after a client-side route
+  change but did not re-filter, so after any navigation the anchor still named
+  the panel the page had loaded with and the newly routed denied panel was the
+  one missing from `hass.panels` — the missing-route condition the anchor exists
+  to prevent, reachable by the back button, an in-card link or Home Assistant's
+  own `navigate()`. A route change now recomputes the map against the URL as it
+  then is. Issue #6, Mechanism B.
+
+  **This repairs the route rather than getting there first.** The hooks report a
+  navigation that has already happened — the `pushState` wrapper calls Home
+  Assistant's own `pushState` before scheduling the report, and `popstate` fires
+  after the URL has changed — so Home Assistant still routes against the stale
+  map and the anchor goes back a settle delay and one round trip later. What
+  changes is that the map is wrong for a few hundred milliseconds instead of
+  until the next full page load. `docs/adr/0008` records what closing that
+  window would take and why it is not this change.
+
+- **A route change costs one permission round trip, not two.** Recomputing the
+  map and re-checking access each needed `get_panel_permissions`; one fetch now
+  feeds both, on hooks that fire on every in-page link.
+
+- **`updateSidebarTitleViaHass()` put an unmarked panel map on `hass`.** It
+  assigned `hass` itself rather than going through `applyPanels()`, so the map
+  it left there carried neither ADR-0007's mark nor the equality check. It now
+  goes through `applyPanels()` like every other write.
+
+- **`sidebar-title.js` stripped the mark that says a panel map is filtered.** It
+  replaces `hass.panels` with an `Object.assign` copy, because `ha-sidebar`
+  memoises on the identity of that map, and `Object.assign` copies own
+  enumerable properties while ADR-0007's mark is deliberately neither enumerable
+  nor a string key. The sidebar filter was therefore free to re-read its
+  unfiltered baseline out of a map it had produced itself — ADR-0007's
+  contamination, reintroduced from a file that decision does not cover. Not part
+  of issue #6; found and fixed in the block this change was already rewriting.
+
+### Added
+
+- `docs/adr/0008` records why "this panel is hidden" gets one owner, why the
+  mark is a non-enumerable `Symbol.for` key rather than an exported identity
+  (`sidebar-title.js` is a classic script and cannot import an ES module), and
+  why recomputing the map from the navigation hooks does not reintroduce the
+  mid-route rebuild issue #4 was about. It also names what it does not answer:
+  `sidebar-title.js` duplicates the sidebar filter's own title code and should
+  probably not exist, and ADR-0005's second case is worth re-measuring now that
+  the obstacle hiding it is gone.
+
+- `tests/routing_anchor.test.mjs` holds the wiring as source-text invariants,
+  since reaching it needs a browser: every title writer asks `isAnchoredPanel()`,
+  `sidebar-title.js` spells the symbol the way the policy does, the string
+  appears in exactly two files, the navigation hooks reach
+  `applySidebarFilter()`, a route change costs one fetch, and nothing outside
+  `applyPanels()` puts a panel map on `hass`. Each was checked by breaking it.
+  The mark itself is a pure-function concern and is tested as one in
+  `tests/permission_policy.test.mjs`.
+
+### Not verified
+
+Neither mechanism was reproduced on a live instance before being fixed — issue
+#6 is explicit that both were read off the code — and neither fix has been
+driven in a browser. What Home Assistant does with either is still open.
+
 ## v2.0.5 — 2026-08-26
 
 ### Fixed

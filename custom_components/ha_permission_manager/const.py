@@ -37,7 +37,7 @@ PANEL_URL = "ha_permission_manager"
 # URL prefix the frontend/ directory is mounted at (see __init__.py).
 FRONTEND_URL_BASE = "/ha_permission_manager_frontend"
 
-PANEL_VERSION = "2.0.5"
+PANEL_VERSION = "2.0.6"
 
 # Control Panel configuration (unified area/label control)
 CONTROL_PANEL_URL = "ha-control-panel"

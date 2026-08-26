@@ -3,9 +3,27 @@
  * Dynamically updates sidebar panel titles based on HA language setting.
  * Handles two panels: ha_permission_manager and ha-control-panel.
  * Loaded via frontend.add_extra_js_url() so it runs on every page.
+ *
+ * Those two panels are also the two most likely to be the panel the sidebar
+ * filter anchors — kept in hass.panels for routing only, hidden by having no
+ * title. Retitling one puts the name of a denied panel back in the sidebar
+ * (issue #6, Mechanism A), so this file asks before it writes.
  */
 (function () {
   "use strict";
+
+  /**
+   * The two marks the sidebar filter's own modules put on what they produce.
+   *
+   * Read from the global symbol registry rather than imported: add_extra_js_url
+   * loads this as a classic script, so it cannot import
+   * frontend/permission_policy.js (which sets ANCHORED and documents it) or
+   * frontend/filter_lifecycle.js (which sets FILTERED, see ADR-0007). The
+   * registry is the whole contract, and tests/routing_anchor.test.mjs holds
+   * this file to spelling the anchor string exactly as the policy does.
+   */
+  const ANCHORED = Symbol.for("ha_permission_manager.anchored_panel");
+  const FILTERED = Symbol.for("ha_permission_manager.filtered_panels");
 
   const PANELS = {
     ha_permission_manager: {
@@ -19,6 +37,28 @@
       "zh-Hans": "\u63a7\u5236\u9762\u677f",
     },
   };
+
+  /**
+   * A fresh panel map with the same contents, and the same answer to "did this
+   * integration produce it".
+   *
+   * Object.assign copies own *enumerable* properties, and the FILTERED mark is
+   * deliberately neither enumerable nor a string key. So a plain copy strips
+   * it, and the sidebar filter would then be free to re-read its unfiltered
+   * baseline out of a filtered map — the contamination ADR-0007 is about,
+   * reintroduced from outside the file that decision covers.
+   */
+  function copyPanels(panels) {
+    var copy = Object.assign({}, panels);
+    if (panels && panels[FILTERED]) {
+      Object.defineProperty(copy, FILTERED, {
+        value: true,
+        enumerable: false,
+        configurable: true,
+      });
+    }
+    return copy;
+  }
 
   function getLanguage(hass) {
     if (!hass) return "en";
@@ -73,7 +113,13 @@
 
     for (var panelKey in PANELS) {
       if (!hass.panels[panelKey]) continue;
+      // Present, so hass is ready and the retry below has nothing left to wait
+      // for — even when every panel here turns out not to be ours to title.
       anyPanelFound = true;
+
+      // A panel the sidebar filter is hiding. Its missing title IS the hiding,
+      // and this ran on the same page load that applied it.
+      if (hass.panels[panelKey][ANCHORED]) continue;
 
       var title = getTitleForLanguage(PANELS[panelKey], lang);
       if (hass.panels[panelKey].title !== title) {
@@ -84,12 +130,14 @@
 
     if (!anyPanelFound) return false;
 
-    // Force ha-sidebar to re-render by creating new panels reference
+    // Force ha-sidebar to re-render by creating new panels reference.
+    // ha-sidebar memoises on the identity of the panel map, so the titles
+    // written above reach the screen only behind a fresh one.
     if (changed) {
       var main = getHassMainElement();
       if (main && main.hass) {
         main.hass = Object.assign({}, main.hass, {
-          panels: Object.assign({}, main.hass.panels),
+          panels: copyPanels(main.hass.panels),
         });
       }
     }

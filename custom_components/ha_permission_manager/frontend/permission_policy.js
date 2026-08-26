@@ -183,17 +183,58 @@ export function panelsEqual(a, b) {
 }
 
 /**
+ * The mark that says a panel entry is an anchor.
+ *
+ * An anchor is hidden by having no title, and a title is a thing two other
+ * places in this integration write onto exactly these panels — issue #6,
+ * Mechanism A, where the hiding was undone on the same page load that applied
+ * it. So "this panel is hidden" needs one owner, and this is it: the mark is
+ * set here and asked about everywhere a title is about to be written.
+ *
+ * `Symbol.for` rather than an exported object identity, because one of those
+ * two places — `frontend/sidebar-title.js` — is a classic script that cannot
+ * import this module. The global symbol registry is the contract between them,
+ * and the string below is spelt in exactly those two files.
+ */
+const ANCHORED = Symbol.for("ha_permission_manager.anchored_panel");
+
+/**
+ * Whether this panel entry is an anchor, and so must keep its missing title.
+ *
+ * Answers about the object it is handed, not about the panel id: a copy taken
+ * with a title put back is, correctly, no longer an anchor. That is why the
+ * question is asked *before* the copy is taken.
+ */
+export function isAnchoredPanel(panel) {
+  return Boolean(panel && typeof panel === "object" && panel[ANCHORED]);
+}
+
+/**
  * A panel kept in hass.panels for routing only, hidden from the sidebar.
  *
- * Home Assistant hides a panel when `show_in_sidebar === false` OR when it has
- * no title. Both are set: relying on either alone leaves the panel's name on
- * screen wherever that version checks only the other one. The one place Home
- * Assistant shows a panel regardless is its own default, which then renders as
- * a nameless row — a worse look than a name, but not the name of a panel this
- * user was denied.
+ * The missing title is the whole of the hiding. Home Assistant's sidebar drops
+ * a panel with no title, and `PanelInfo` carries no field for hiding one —
+ * `show_in_sidebar` is set below because two releases of this integration have
+ * shipped it and removing it changes a serialised map nothing reads, but no
+ * Home Assistant version is known to honour it and none is relied on to.
+ *
+ * The one place Home Assistant shows a panel regardless is its own default,
+ * which then renders as a nameless row — a worse look than a name, but not the
+ * name of a panel this user was denied.
+ *
+ * The mark is non-enumerable, so Home Assistant's `Object.keys` walk over the
+ * panels and its serialisation of them never see it, and neither does
+ * panelsEqual(). It is a property of *this object*, which is what makes it
+ * answer the question the title writers actually have.
  */
 function anchorPanel(panel) {
-  return { ...panel, title: null, show_in_sidebar: false };
+  const anchor = { ...panel, title: null, show_in_sidebar: false };
+  Object.defineProperty(anchor, ANCHORED, {
+    value: true,
+    enumerable: false,
+    configurable: true,
+  });
+  return anchor;
 }
 
 /**
@@ -306,9 +347,12 @@ export const DASHBOARD_COMPONENT_NAMES = Object.freeze(["lovelace", "home"]);
  * missing from it is a panel nothing can be claimed about.
  *
  * That last case is a known limit of the diagnostic, not of the hiding.
- * filterPanels() keeps the routed panel as an anchor, so the map answers for
- * the page the browser loaded; after a client-side navigation the anchor is
- * stale (issue #6, Mechanism B) and this quietly answers "no", which costs a
+ * filterPanels() keeps the routed panel as an anchor, and since v2.0.6 the
+ * sidebar filter recomputes that anchor on every client-side navigation
+ * (issue #6, Mechanism B), so the map answers for the page the browser is on
+ * rather than only for the one it loaded. What is left is the gap between the
+ * route changing and the hooks getting to it — a router settle plus one
+ * permission round trip — during which this quietly answers "no" and costs a
  * warning that would have been earned. It never costs a Permission: whether
  * content is hidden is decided by shouldShowDashboard() alone.
  *

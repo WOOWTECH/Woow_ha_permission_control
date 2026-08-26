@@ -254,6 +254,36 @@ test("installing the hooks twice wraps pushState once", () => {
   );
 });
 
+test("a navigation is reported only after Home Assistant has already routed", () => {
+  // This is the shape of what issue #6's Mechanism B fix can and cannot do.
+  // The wrapper calls Home Assistant's own pushState *first* and schedules the
+  // report after it, and popstate fires once the URL has already changed. So a
+  // Filter told about a navigation here is being told about one that has
+  // happened: it can repair hass.panels for the route the browser is now on,
+  // and it cannot put the anchor there before Home Assistant's router looked.
+  //
+  // Closing that window means acting before the navigation, off permissions
+  // already held. See ADR-0008.
+  const browser = fakeBrowser();
+  let alreadyPushed = null;
+
+  installNavigationHooks({
+    window: browser.win,
+    onNavigate: () => {
+      alreadyPushed = browser.pushed.length;
+    },
+    schedule: (fn) => fn(),
+  });
+
+  browser.history.pushState({ page: 1 }, "", "/config");
+
+  assert.equal(
+    alreadyPushed,
+    1,
+    "the report lands after the navigation it reports, not before it",
+  );
+});
+
 test("the wrapper passes pushState its arguments and its receiver", () => {
   const browser = fakeBrowser();
   install(browser, []);
@@ -439,7 +469,7 @@ test("marking a map returns it, so it can be marked on the way past", () => {
   assert.equal(markFiltered(panels), panels);
 });
 
-// === The sidebar filter's own wiring ===
+// === The Filters' own wiring ===
 //
 // Everything above tests the module. What it cannot reach is the adapter that
 // uses it: a sixth subscribeEvents call added later without subscriptions.add,
@@ -448,13 +478,15 @@ test("marking a map returns it, so it can be marked on the way past", () => {
 // Assistant, so these read it as text instead — the same way
 // frontend_assets.test.mjs holds the cache-buster rule.
 
-const SIDEBAR_FILTER = readFileSync(
-  new URL(
-    "../custom_components/ha_permission_manager/frontend/ha_sidebar_filter.js",
-    import.meta.url,
-  ),
-  "utf8",
-);
+const source = (name) =>
+  readFileSync(
+    new URL(`../custom_components/ha_permission_manager/frontend/${name}`, import.meta.url),
+    "utf8",
+  );
+
+const LIFECYCLE = source("filter_lifecycle.js");
+const SIDEBAR_FILTER = source("ha_sidebar_filter.js");
+const SIDEBAR_TITLE = source("sidebar-title.js");
 
 test("every event the sidebar filter subscribes to is held", () => {
   // Everything on the same line before the call, which is where the holding
@@ -500,4 +532,32 @@ test("the sidebar filter hooks navigation only through this module", () => {
         "once per document",
     );
   }
+});
+
+test("the title script hands the mark on with every map it copies", () => {
+  // sidebar-title.js replaces hass.panels with a copy, because ha-sidebar
+  // memoises on the identity of that map. Object.assign copies own enumerable
+  // properties and the mark is deliberately neither enumerable nor a string
+  // key, so a plain copy strips it — and the sidebar filter is then free to
+  // re-read its unfiltered baseline out of a map it produced itself. That is
+  // this decision's contamination, reintroduced from a file it does not cover.
+  //
+  // The script is a classic one loaded by add_extra_js_url, so it cannot
+  // import markFiltered(); the global symbol registry is the contract, and the
+  // string has to be the same one.
+  const mark = /Symbol\.for\("(ha_permission_manager\.filtered_panels)"\)/;
+  const declared = mark.exec(LIFECYCLE);
+  assert.ok(declared, "filter_lifecycle.js marks a map with a registered symbol");
+
+  assert.ok(
+    SIDEBAR_TITLE.includes(`Symbol.for("${declared[1]}")`),
+    "sidebar-title.js reads the same mark this module writes",
+  );
+
+  assert.doesNotMatch(
+    SIDEBAR_TITLE,
+    /panels:\s*Object\.assign\(\{\},/,
+    "a bare Object.assign of the panel map drops the mark; the copy that goes " +
+      "on hass has to carry it",
+  );
 });
