@@ -56,6 +56,43 @@
   still holding a subscription made on the closed connection, and it will not
   make another.
 
+### Verified
+
+Deployed to 192.168.2.6 (HA 2026.7.2), restarted, and driven as both identities.
+`tests/verify_issue_5.py` wraps `hass.connection.subscribeEvents` before the
+Filter runs, so it watches the Filter make its own subscriptions rather than
+inferring them, and counts the 150 ms checks one `history.pushState` schedules.
+Only the re-initialisation is simulated: a second `home-assistant` element
+inserted ahead of the first, which is the condition the Filter's own
+MutationObserver watches for. Read-only — the permission store was byte-identical
+before and after.
+
+- **The accumulation reproduces on v2.0.4 and stops on v2.0.5.** After one
+  re-initialisation, v2.0.4 held **2 live subscriptions** each of
+  `user_updated`, `homeassistant_auth_updated` and `lovelace_updated`, and one
+  `pushState` cost **2** checks and 2 `get_panel_permissions` round trips.
+  v2.0.5 holds **1 of each** and costs **1** check, with one `released`
+  recorded per event type — the unsubscribe that never used to happen.
+
+- **Four of the five subscriptions never worked for a non-admin.** Home
+  Assistant refuses a non-admin's `subscribe_events` for `user_updated`,
+  `homeassistant_auth_updated` and `permission_manager_updated`; only
+  `lovelace_updated` and `core_config_updated` are accepted. Those rejections
+  are the four `Unauthorized` console errors this instance shows on every
+  non-admin page. Holding a subscription means catching them, so v2.0.5 drops
+  that count from 4 to 1 — the one left belongs to the lovelace filter, which
+  has no teardown. The dead subscriptions are a defect of their own and are not
+  fixed here.
+
+- **Revoking a Permission through a service fires no event.**
+  `set_permission` and `bulk_set_permissions` both fire
+  `permission_manager_updated`, but `remove_user_permissions` and
+  `remove_resource_permissions` are silent — measured by listening on an admin
+  page while calling each. Revocation is the direction where a live page
+  matters most. Found while looking for a way to drive the subscriptions; not
+  fixed here.
+
+
 ## v2.0.4 — 2026-08-25
 
 ### Fixed

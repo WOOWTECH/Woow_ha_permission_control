@@ -1,0 +1,207 @@
+{
+  "label": "v2.0.4",
+  "identity": "admin",
+  "url": "http://192.168.2.6:8123",
+  "panel": "ha-control-panel",
+  "tokens": {
+    "admin": "accepted, 3648 days left",
+    "non-admin": "accepted, 3649 days left"
+  },
+  "first_run": {
+    "ha_present_at_dom_content_loaded": true,
+    "subscriptions": {
+      "permission_manager_updated": {
+        "made": 2,
+        "live": 2,
+        "rejected": 0,
+        "released": 0
+      },
+      "user_updated": {
+        "made": 1,
+        "live": 1,
+        "rejected": 0,
+        "released": 0
+      },
+      "homeassistant_auth_updated": {
+        "made": 1,
+        "live": 1,
+        "rejected": 0,
+        "released": 0
+      },
+      "lovelace_updated": {
+        "made": 1,
+        "live": 1,
+        "rejected": 0,
+        "released": 0
+      },
+      "core_config_updated": {
+        "made": 11,
+        "live": 11,
+        "rejected": 0,
+        "released": 0
+      }
+    }
+  },
+  "panels_after_first_run": {
+    "path": "/ha-control-panel",
+    "hassReady": true,
+    "panelCount": 37,
+    "panelIds": [
+      "5c53de3b_esphome",
+      "77b2833f_pgadmin4",
+      "_my_redirect",
+      "a0d7b954_ssh",
+      "app",
+      "climate",
+      "config",
+      "core_configurator",
+      "core_matter_server",
+      "dashboard-simon",
+      "energy",
+      "erv-v2",
+      "ha-asset-record",
+      "ha-control-panel",
+      "ha-finance",
+      "ha-health-record",
+      "ha-mcp",
+      "ha-note-record",
+      "ha_permission_manager",
+      "hacs",
+      "history",
+      "home",
+      "light",
+      "logbook",
+      "lovelace",
+      "maintenance",
+      "map",
+      "media-browser",
+      "notfound",
+      "profile",
+      "security",
+      "todo",
+      "woow-blueprints",
+      "woow_dmx",
+      "woow_knx",
+      "woow_modbus",
+      "woow_multi_protocol"
+    ],
+    "accessDeniedPresent": false
+  },
+  "control_window": {
+    "timers_at_check_delay": 0,
+    "get_panel_permissions": 0,
+    "note": "2s with no navigation, to price the background rate"
+  },
+  "pushState_before_reinit": {
+    "timers_at_check_delay": 1,
+    "get_panel_permissions": 0
+  },
+  "reinit": {
+    "decoyIsNowFirst": true,
+    "decoyCarriesHass": true
+  },
+  "after_reinit": {
+    "subscriptions": {
+      "permission_manager_updated": {
+        "made": 3,
+        "live": 3,
+        "rejected": 0,
+        "released": 0
+      },
+      "user_updated": {
+        "made": 2,
+        "live": 2,
+        "rejected": 0,
+        "released": 0
+      },
+      "homeassistant_auth_updated": {
+        "made": 2,
+        "live": 2,
+        "rejected": 0,
+        "released": 0
+      },
+      "lovelace_updated": {
+        "made": 2,
+        "live": 2,
+        "rejected": 0,
+        "released": 0
+      },
+      "core_config_updated": {
+        "made": 12,
+        "live": 12,
+        "rejected": 0,
+        "released": 0
+      }
+    },
+    "panels": {
+      "path": "/ha-control-panel",
+      "hassReady": true,
+      "panelCount": 37,
+      "panelIds": [
+        "5c53de3b_esphome",
+        "77b2833f_pgadmin4",
+        "_my_redirect",
+        "a0d7b954_ssh",
+        "app",
+        "climate",
+        "config",
+        "core_configurator",
+        "core_matter_server",
+        "dashboard-simon",
+        "energy",
+        "erv-v2",
+        "ha-asset-record",
+        "ha-control-panel",
+        "ha-finance",
+        "ha-health-record",
+        "ha-mcp",
+        "ha-note-record",
+        "ha_permission_manager",
+        "hacs",
+        "history",
+        "home",
+        "light",
+        "logbook",
+        "lovelace",
+        "maintenance",
+        "map",
+        "media-browser",
+        "notfound",
+        "profile",
+        "security",
+        "todo",
+        "woow-blueprints",
+        "woow_dmx",
+        "woow_knx",
+        "woow_modbus",
+        "woow_multi_protocol"
+      ],
+      "accessDeniedPresent": false
+    }
+  },
+  "pushState_after_reinit": {
+    "timers_at_check_delay": 2,
+    "get_panel_permissions": 0
+  },
+  "console": [
+    {
+      "type": "pageerror",
+      "text": "Cannot convert undefined or null to object"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    }
+  ],
+  "verdict": {
+    "live_subscriptions_after_one_reinit": {
+      "user_updated": 2,
+      "homeassistant_auth_updated": 2,
+      "lovelace_updated": 2
+    },
+    "expected": "1 of each \u2014 a re-initialisation replaces, not adds",
+    "pushState_checks_after_one_reinit": 2,
+    "expected_checks": 1,
+    "holds": false
+  }
+}
