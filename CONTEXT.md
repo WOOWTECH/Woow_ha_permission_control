@@ -40,6 +40,13 @@ A JS module injected on every HA page that hides what a user has no View
 permission for. Three exist: sidebar filter, lovelace filter, access-denied.
 _Avoid_: guard, interceptor, middleware
 
+**Baseline**:
+The unfiltered panel map a Filter applies filtering to: what Home Assistant
+offered before this integration touched it. Read once on load and re-read after
+a reset, never from a map a Filter produced — a baseline missing a panel cannot
+offer it back when a Permission level is granted (ADR-0007).
+_Avoid_: original panels, the panel list, the unfiltered state
+
 **Dashboard**:
 A Home Assistant Lovelace page, rendered into a `hui-root` element: the default
 one Home Assistant serves at `/home`, and any added by hand. Governed by the

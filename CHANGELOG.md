@@ -1,5 +1,61 @@
 # Changelog
 
+## v2.0.5 — 2026-08-26
+
+### Fixed
+
+- **The sidebar filter registered everything a second time when it
+  re-initialised.** Home Assistant replaces its `home-assistant` element on
+  logout/login, the Filter watches for that and re-initialises, and
+  re-initialisation added five WebSocket subscriptions, two DOM listeners and a
+  wrapper around `history.pushState` on top of the ones the previous run had
+  left in place — once per re-initialisation, for the life of the tab. There was
+  no unsubscribe and no `removeEventListener` anywhere in the file. The
+  subscriptions are now held and released before the next run subscribes, and
+  the navigation hooks are installed once on `window`, `document` and `history`,
+  none of which a re-initialisation replaces. Reported as issue #5, split out of
+  #4.
+
+- **Each re-initialisation made one navigation cost another permission round
+  trip.** The `pushState` wrapper captured whatever `history.pushState` was at
+  the time, which on the second run is the first wrapper, so the wrappers nested
+  rather than replaced. After N re-initialisations a single client-side
+  navigation scheduled N `checkCurrentPanelAccess()` calls, each with its own
+  `get_panel_permissions` request. The hook is now installed once per document,
+  however many times it is asked for.
+
+- **A reset re-read the unfiltered baseline from the filtered map.**
+  `resetState()` dropped the baseline and `storeOriginalPanels()` re-derived it
+  from `hass.panels`, which by then is the map this integration produced. Every
+  panel the user had no View level on was missing from the baseline for the rest
+  of the session, so granting a Permission level afterwards could not bring the
+  panel back without a full page reload. Maps this integration puts on `hass` are
+  now marked, a baseline is never read from a marked one, and a reset asks for a
+  fresh baseline rather than throwing away the one it has — so a dashboard added
+  while the tab was logged out is still picked up.
+
+### Added
+
+- `frontend/filter_lifecycle.js` holds the three answers above, and
+  `tests/filter_lifecycle.test.mjs` drives them: a fake `hass.connection` counts
+  what stays live across a subscribe → release → subscribe cycle, a fake
+  `history` counts how many wrappers one `pushState` runs, and the baseline
+  rules are checked against a marked map. The mark is non-enumerable, because
+  object spread copies enumerable symbol keys and an inherited mark would lock
+  the baseline out for good.
+
+- The sidebar filter's own wiring is held as source-text invariants in the same
+  file, since reaching that code needs a browser: every `subscribeEvents` call
+  is held, `resetState()` releases them, and the file hooks no navigation of its
+  own. Each was checked by breaking it.
+
+- `docs/adr/0007` records why the three registrations get three different
+  answers, and why the other two Filters are left alone: `ha_lovelace_filter.js`
+  never re-initialises, so it has nothing to accumulate on. It notes the other
+  side of that coin as a separate, unmeasured question — after a logout it is
+  still holding a subscription made on the closed connection, and it will not
+  make another.
+
 ## v2.0.4 — 2026-08-25
 
 ### Fixed

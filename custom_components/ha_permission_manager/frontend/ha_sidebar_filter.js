@@ -7,6 +7,7 @@
  *
  * v2.9.33 - Denied panels settle instead of navigating forever (issue #4)
  * v2.9.34 - Everything this file pulls in is busted with it (issue #9)
+ * v2.9.35 - A re-initialisation replaces its registrations (issue #5)
  */
 
 /** This module's cache buster, carried onto everything it pulls in (ADR-0006). */
@@ -62,6 +63,13 @@ const {
   panelIdFromPath,
   panelsEqual,
 } = await import(`./permission_policy.js${ASSET_VERSION_QUERY}`);
+
+const {
+  createSubscriptions,
+  installNavigationHooks,
+  markFiltered,
+  nextBaseline,
+} = await import(`./filter_lifecycle.js${ASSET_VERSION_QUERY}`);
 
 (function() {
   "use strict";
@@ -137,19 +145,41 @@ const {
   };
 
   // State
-  let originalPanels = null;  // Stored once on first load
+  let originalPanels = null;  // The unfiltered map filtering is applied to
+  let baselineStale = true;   // Whether that map is owed a fresh reading
   let currentUserId = null;
   let isAdmin = false;
   let initialized = false;
   let lastLanguage = null;
   let lastPermissionHash = null;
   let hassObserverSetup = false;
+  // Which run of init() is the current one. init() is a chain of awaits, so a
+  // reset can land in the middle of one; the run it overtook must not go on to
+  // subscribe, or it would leave behind exactly the second set of handlers the
+  // reset just released.
+  let currentRun = 0;
+
+  /** Everything one run of this Filter subscribes to, so it can be released. */
+  const subscriptions = createSubscriptions();
 
   /**
    * Reset all state (called when user changes or hass is recreated)
+   *
+   * Releasing the subscriptions is what stops the run that follows this reset
+   * from registering a second copy of all five (issue #5). The navigation hooks
+   * need no release: they sit on objects the reset does not replace, and
+   * installNavigationHooks() is a no-op once they are there.
+   *
+   * The baseline is marked stale rather than dropped. Home Assistant may well
+   * have a different panel map by the time the next run reads it — a dashboard
+   * added while this tab was logged out — but it may also still be holding the
+   * map this Filter produced, and rebaselining from that one bakes the
+   * filtering in for the rest of the session.
    */
   function resetState() {
-    originalPanels = null;
+    subscriptions.release();
+    currentRun += 1;
+    baselineStale = true;
     currentUserId = null;
     isAdmin = false;
     initialized = false;
@@ -198,16 +228,37 @@ const {
   }
 
   /**
-   * Store original panels on first load (before any filtering)
+   * Read the unfiltered panel map, on first load and after a reset.
+   *
+   * Never from a map this Filter produced: that map is missing every panel the
+   * user has no View level on, and a baseline missing them cannot bring one
+   * back when a Permission level is granted afterwards.
    */
   async function storeOriginalPanels() {
-    if (originalPanels) return originalPanels;
+    if (originalPanels && !baselineStale) return originalPanels;
 
     const hass = await waitForHass();
-    if (!hass || !hass.panels) return null;
+    const baseline = nextBaseline({
+      current: originalPanels,
+      candidate: hass?.panels,
+      stale: baselineStale,
+    });
 
-    // Deep copy the original panels
-    originalPanels = JSON.parse(JSON.stringify(hass.panels));
+    if (baseline !== originalPanels) {
+      originalPanels = baseline;
+      baselineStale = false;
+    } else {
+      // Still stale: nextBaseline() had nothing it could read a baseline from
+      // — no hass, or the map this Filter produced. Which one is diagnostic;
+      // that the re-read was asked for and did not happen is the part worth
+      // saying out loud (ADR-0005).
+      console.warn(
+        "[SidebarFilter] A fresh baseline was asked for and Home Assistant " +
+        "offered nothing to read one from" +
+        (originalPanels ? "; keeping the one already held." : ", and there is none.")
+      );
+    }
+
     return originalPanels;
   }
 
@@ -281,6 +332,10 @@ const {
    * read `route.path` off undefined.
    */
   function applyPanels(haMain, panels) {
+    // Marked whether or not it is assigned: either way this is a map the
+    // Filter produced, and storeOriginalPanels() must never read a baseline
+    // out of one.
+    markFiltered(panels);
     if (panelsEqual(haMain.hass.panels, panels)) return;
     haMain.hass = { ...haMain.hass, panels };
   }
@@ -407,13 +462,20 @@ const {
 
   /**
    * Subscribe to permission changes
+   *
+   * Every subscription is held, because a re-initialisation makes all five
+   * again and the connection they were made on is gone by then (issue #5).
+   *
+   * `run` is the caller's run number, checked again below: a reset that lands
+   * inside the wait releases a list these five have not joined yet, and adding
+   * them afterwards is the doubling this is all here to prevent.
    */
-  async function subscribeToChanges() {
+  async function subscribeToChanges(run) {
     const hass = await waitForHass();
-    if (!hass || !hass.connection) return;
+    if (!hass || !hass.connection || run !== currentRun) return;
 
     // Listen for user_updated events (when admin status changes in HA)
-    hass.connection.subscribeEvents(async (event) => {
+    subscriptions.add(hass.connection.subscribeEvents(async (event) => {
       // Check if current user's admin status changed
       const oldIsAdmin = isAdmin;
       const { is_admin } = await fetchPermissions();
@@ -426,10 +488,10 @@ const {
 
       // Even if admin status didn't change, re-apply filter in case permissions changed
       await applySidebarFilter();
-    }, "user_updated");
+    }, "user_updated"));
 
     // Listen for auth events (login/logout, permission changes)
-    hass.connection.subscribeEvents(async (event) => {
+    subscriptions.add(hass.connection.subscribeEvents(async (event) => {
       // Re-check admin status and permissions
       const oldIsAdmin = isAdmin;
       const { is_admin } = await fetchPermissions();
@@ -440,10 +502,10 @@ const {
       }
 
       await applySidebarFilter();
-    }, "homeassistant_auth_updated");
+    }, "homeassistant_auth_updated"));
 
     // Listen for lovelace dashboard changes (create/delete)
-    hass.connection.subscribeEvents(async (event) => {
+    subscriptions.add(hass.connection.subscribeEvents(async (event) => {
       const action = event.data?.action;
       const urlPath = event.data?.url_path;
 
@@ -472,10 +534,10 @@ const {
         // Re-apply filter with new permissions
         await applySidebarFilter();
       }
-    }, "lovelace_updated");
+    }, "lovelace_updated"));
 
     // Subscribe to permission_manager_updated event (replaces 5-second polling)
-    hass.connection.subscribeEvents(async (event) => {
+    subscriptions.add(hass.connection.subscribeEvents(async (event) => {
       const oldIsAdmin = isAdmin;
       const { permissions, is_admin } = await fetchPermissions();
 
@@ -490,10 +552,10 @@ const {
         await applySidebarFilter();
         await checkCurrentPanelAccess();
       }
-    }, "permission_manager_updated");
+    }, "permission_manager_updated"));
 
     // Listen for language changes via core_config_updated event
-    hass.connection.subscribeEvents(async (event) => {
+    subscriptions.add(hass.connection.subscribeEvents(async (event) => {
       // Get current language from hass object (more reliable than event data)
       const haMain = document.querySelector("home-assistant");
       const newLanguage = haMain?.hass?.language || "en";
@@ -507,7 +569,7 @@ const {
 
       // Update sidebar title via DOM manipulation (more reliable than hass.panels)
       updateSidebarTitle();
-    }, "core_config_updated");
+    }, "core_config_updated"));
   }
 
   /**
@@ -663,22 +725,15 @@ const {
 
   /**
    * Watch for navigation
+   *
+   * Once per document, not once per run: the window this hooks outlives the
+   * `home-assistant` element the Filter re-initialises with. See ADR-0007.
    */
   function watchNavigation() {
-    window.addEventListener("popstate", () => checkCurrentPanelAccess());
-
-    document.addEventListener("click", (e) => {
-      const link = e.target.closest("a");
-      if (link && link.href && link.href.startsWith(window.location.origin)) {
-        setTimeout(() => checkCurrentPanelAccess(), 150);
-      }
+    installNavigationHooks({
+      window,
+      onNavigate: () => checkCurrentPanelAccess(),
     });
-
-    const originalPushState = history.pushState;
-    history.pushState = function(...args) {
-      originalPushState.apply(this, args);
-      setTimeout(() => checkCurrentPanelAccess(), 150);
-    };
   }
 
   /**
@@ -719,6 +774,7 @@ const {
 
     if (initialized) return;
     initialized = true;
+    const run = currentRun;
 
     // Initialize lastLanguage from current hass state
     const hass = await waitForHass();
@@ -761,8 +817,12 @@ const {
 
     await applySidebarFilter();
 
+    // A reset overtook this run while it was waiting above, and the run that
+    // followed the reset is the one that subscribes now.
+    if (run !== currentRun) return;
+
     watchNavigation();
-    await subscribeToChanges();
+    await subscribeToChanges(run);
     await checkCurrentPanelAccess();
 
     // Permission check complete - remove loading overlay
