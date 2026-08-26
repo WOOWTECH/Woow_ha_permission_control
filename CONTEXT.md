@@ -40,6 +40,13 @@ A JS module injected on every HA page that hides what a user has no View
 permission for. Three exist: sidebar filter, lovelace filter, access-denied.
 _Avoid_: guard, interceptor, middleware
 
+**Panel Gate**:
+The backend layer that decides which panels leave Home Assistant. It wraps Home
+Assistant's own `get_panels`, drops the panels a non-administrator has no View
+permission for, and never touches an administrator's answer. Single owner: the
+panel list a browser receives is the whole of what that user may see.
+_Avoid_: backend filter, panel filter, sidebar filter, interceptor
+
 **Baseline**:
 The unfiltered panel map a Filter applies filtering to: what Home Assistant
 offered before this integration touched it. Read once on load and re-read after
