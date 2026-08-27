@@ -5,12 +5,25 @@ decisions that both discovery and the WebSocket API make about panels, so they
 are asserted here once instead of being observed in a live browser.
 """
 import sys
+import types
 from pathlib import Path
 from types import SimpleNamespace
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "custom_components" / "ha_permission_manager"))
+# panel_policy reads its constants out of the package's const.py, and neither
+# file imports Home Assistant. Resolving `from .const` needs a package to
+# resolve against, but not the package's __init__.py — that one does import
+# Home Assistant. So a stand-in package is registered whose search path is the
+# integration directory, and nothing else of the integration is executed.
+_PACKAGE_DIR = Path(__file__).resolve().parents[1] / "custom_components" / "ha_permission_manager"
+_offline_package = types.ModuleType("ha_permission_manager_offline")
+_offline_package.__path__ = [str(_PACKAGE_DIR)]
+sys.modules.setdefault("ha_permission_manager_offline", _offline_package)
 
-from panel_policy import admin_panel_resources, unroutable_panel_ids  # noqa: E402
+from ha_permission_manager_offline.panel_policy import (  # noqa: E402
+    admin_panel_resources,
+    unroutable_panel_ids,
+    visible_panel_ids,
+)
 
 
 def panel(**kwargs):
@@ -115,3 +128,214 @@ def test_the_matrix_never_offers_a_panel_the_permission_endpoints_would_drop():
 
     assert offered & dropped == set()
     assert offered == {"home", "energy", "dashboard-kitchen"}
+
+
+# =============================================================================
+# visible_panel_ids — the one answer to "which panels may this user receive"
+# =============================================================================
+
+
+def test_a_stored_level_on_an_unroutable_panel_grants_nothing():
+    """The disagreement that put this function here.
+
+    The Permission store still holds `panel_lovelace: 1` for users granted it
+    before discovery stopped offering the stub, and the level is left alone so
+    it comes back to life if the panel ever becomes real. What must not happen
+    is a sidebar row for a panel Home Assistant bounces straight off — the
+    first spike of the Panel Gate handed one over, because it answered this
+    question in a second place of its own.
+    """
+    panels = {
+        "lovelace": panel(component_name="lovelace", config=None),
+        "home": panel(component_name="home"),
+    }
+
+    visible = visible_panel_ids(
+        panel_ids=["lovelace", "home"],
+        panels=panels,
+        user_permissions={"panel_lovelace": 1, "panel_home": 1},
+        is_admin=False,
+    )
+
+    assert visible == {"home"}
+
+
+def test_an_administrator_receives_everything():
+    """Not one key is dropped from an administrator's panel list.
+
+    This is what keeps the Permission Manager panel reachable when every other
+    part of this integration has failed, so it holds even for the panels a
+    non-admin is refused: the stub, and everything carrying no level.
+    """
+    panels = {
+        "lovelace": panel(component_name="lovelace", config=None),
+        "home": panel(component_name="home"),
+        "config": panel(),
+    }
+
+    visible = visible_panel_ids(
+        panel_ids=["lovelace", "home", "config"],
+        panels=panels,
+        user_permissions={},
+        is_admin=True,
+    )
+
+    assert visible == {"lovelace", "home", "config"}
+
+
+def test_profile_and_notfound_survive_without_a_permission():
+    """The two panels kept for a reason other than a Permission.
+
+    `profile` is every user's own account page and is no Resource; `notfound`
+    is where Home Assistant's router falls back, and taking it away is what
+    made the router throw. Neither carries a Permission level, and the Python
+    spelling of both has to say what frontend/permission_policy.js says.
+    """
+    panels = {"profile": panel(), "notfound": panel(), "home": panel(component_name="home")}
+
+    visible = visible_panel_ids(
+        panel_ids=["profile", "notfound", "home"],
+        panels=panels,
+        user_permissions={},
+        is_admin=False,
+    )
+
+    assert visible == {"profile", "notfound"}
+
+
+def test_a_user_with_nothing_in_the_store_receives_only_those_two():
+    """The degraded set, reached by an empty store as much as by a missing one."""
+    panels = {"profile": panel(), "notfound": panel(), "home": panel(component_name="home")}
+
+    for user_permissions in ({}, None):
+        assert visible_panel_ids(
+            panel_ids=["profile", "notfound", "home"],
+            panels=panels,
+            user_permissions=user_permissions,
+            is_admin=False,
+        ) == {"profile", "notfound"}
+
+
+def test_only_a_level_above_closed_grants_a_panel():
+    """Closed and absent say the same thing. Only View hands a panel over."""
+    panels = {
+        "granted": panel(component_name="granted"),
+        "closed": panel(component_name="closed"),
+        "unmentioned": panel(component_name="unmentioned"),
+    }
+
+    visible = visible_panel_ids(
+        panel_ids=["granted", "closed", "unmentioned"],
+        panels=panels,
+        user_permissions={"panel_granted": 1, "panel_closed": 0},
+        is_admin=False,
+    )
+
+    assert visible == {"granted"}
+
+
+def test_a_permission_is_read_off_the_prefixed_resource_id():
+    """The store is keyed by Resource id, and a bare panel id is not one.
+
+    Reading `home` instead of `panel_home` would let an Area or Label that
+    happens to be named like a panel answer a panel's question.
+    """
+    panels = {"home": panel(component_name="home")}
+
+    visible = visible_panel_ids(
+        panel_ids=["home"],
+        panels=panels,
+        user_permissions={"home": 1, "area_home": 1, "label_home": 1},
+        is_admin=False,
+    )
+
+    assert visible == set()
+
+
+def test_nothing_comes_back_that_was_not_offered():
+    """The answer is a subset of the question.
+
+    The caller decides which panels are on the table — the Panel Gate offers
+    the panels Home Assistant computed for this user, which is already less
+    than every panel registered. A View level on a panel that was not offered
+    cannot add it back, and neither can being `profile`.
+    """
+    panels = {"home": panel(component_name="home"), "profile": panel()}
+
+    visible = visible_panel_ids(
+        panel_ids=["home"],
+        panels=panels,
+        user_permissions={"panel_home": 1, "panel_energy": 1},
+        is_admin=False,
+    )
+
+    assert visible == {"home"}
+
+
+def test_a_panel_offered_with_no_registry_entry_is_decided_by_its_permission():
+    """A panel id with nothing to read a component name off is not the stub.
+
+    Only the stub `lovelace` is unroutable, and that verdict needs the panel
+    object. An id the caller offers that the panels mapping does not describe
+    is an ordinary panel, so its Permission still governs it.
+    """
+    visible = visible_panel_ids(
+        panel_ids=["home", "energy"],
+        panels={},
+        user_permissions={"panel_home": 1},
+        is_admin=False,
+    )
+
+    assert visible == {"home"}
+
+
+def test_a_real_dashboard_is_granted_like_any_other_panel():
+    """Only the stub is refused. A `lovelace` panel with a config mode is real."""
+    panels = {
+        "lovelace": panel(component_name="lovelace", config={"mode": "storage"}),
+        "dashboard-kitchen": panel(component_name="lovelace", config={"mode": "storage"}),
+    }
+
+    visible = visible_panel_ids(
+        panel_ids=["lovelace", "dashboard-kitchen"],
+        panels=panels,
+        user_permissions={"panel_lovelace": 1, "panel_dashboard-kitchen": 1},
+        is_admin=False,
+    )
+
+    assert visible == {"lovelace", "dashboard-kitchen"}
+
+
+def test_a_fully_permitted_non_admin_receives_what_was_offered_and_their_own_page():
+    """The two ends of the integration, asserted against each other.
+
+    admin_panel_resources decides which panels an administrator may set a
+    Permission level on; visible_panel_ids decides what a level is worth. Turn
+    every toggle the Permission Manager panel offers to View, and what comes
+    back is exactly those panels — the stub and Home Assistant's own
+    administrator panels stay refused however hard the store is asked — plus
+    the one panel that never carried a Permission level at all.
+    """
+    panels = {
+        "lovelace": panel(component_name="lovelace", config=None),
+        "home": panel(component_name="home"),
+        "config": panel(),
+        "developer-tools": panel(),
+        "profile": panel(),
+        "notfound": panel(),
+        "energy": panel(component_name="energy", title="Energy"),
+    }
+
+    offered = {r["id"] for r in admin_panel_resources(panels)}
+    user_permissions = {f"panel_{panel_id}": 1 for panel_id in offered}
+
+    visible = visible_panel_ids(
+        panel_ids=panels.keys(),
+        panels=panels,
+        user_permissions=user_permissions,
+        is_admin=False,
+    )
+
+    assert visible == offered | {"profile"}
+    assert "lovelace" not in visible
+    assert visible.isdisjoint({"config", "developer-tools"})

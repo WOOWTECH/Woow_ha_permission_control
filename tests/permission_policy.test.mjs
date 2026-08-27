@@ -8,11 +8,15 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import {
   ACCESS_ALLOW,
   ACCESS_DENY,
   ACCESS_REDIRECT,
+  ALWAYS_VISIBLE_PANELS,
+  ROUTER_FALLBACK_PANELS,
   decideInitAccess,
   filterPanels,
   isAnchoredPanel,
@@ -604,4 +608,55 @@ test("the exemption does not reach a real dashboard", () => {
     shouldShowDashboard({ permissions: { panels: { home: 0 } }, isAdmin: false, pathname: "/home" }),
     false,
   );
+});
+
+// =============================================================================
+// The two panels that need no Permission, spelt in two languages
+// =============================================================================
+//
+// ALWAYS_VISIBLE_PANELS and ROUTER_FALLBACK_PANELS exist twice: here, for the
+// Filters, and in custom_components/ha_permission_manager/panel_policy.py, for
+// the Panel Gate and for what get_panel_permissions reports. Nothing makes the
+// two agree at runtime — one is JavaScript and one is Python — and a panel
+// that needs no Permission in one layer and does in the other is denied in one
+// place and allowed in the other.
+//
+// So the Python file is read as text, the way tests/console_vocabulary.test.mjs
+// and tests/frontend_assets.test.mjs read the sources they hold to a spelling.
+// Importing it is not on offer here, and running a Python test against the
+// JavaScript is not on offer there.
+
+const PANEL_POLICY_PY = fileURLToPath(
+  new URL("../custom_components/ha_permission_manager/panel_policy.py", import.meta.url),
+);
+
+/**
+ * The panel ids in one of panel_policy.py's frozensets, read out of the source.
+ *
+ * Deliberately not a Python parser: one anchored regex for the assignment, one
+ * for the quoted ids inside it, neither able to match past the literal it
+ * starts on. Spelling the frozenset any other way fails the test rather than
+ * quietly matching nothing, which is the failure this is here to prevent.
+ */
+function pythonPanelIds(name) {
+  const source = readFileSync(PANEL_POLICY_PY, "utf8");
+  const assignment = new RegExp(`^${name} = frozenset\\(\\{([^}]*)\\}\\)`, "m").exec(source);
+  assert.ok(assignment, `${name} is not a frozenset literal in panel_policy.py`);
+  return [...assignment[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]).sort();
+}
+
+test("both layers keep the same panels visible without a Permission", () => {
+  assert.deepEqual(pythonPanelIds("ALWAYS_VISIBLE_PANELS"), [...ALWAYS_VISIBLE_PANELS].sort());
+});
+
+test("both layers keep the same panels for the router to fall back through", () => {
+  assert.deepEqual(pythonPanelIds("ROUTER_FALLBACK_PANELS"), [...ROUTER_FALLBACK_PANELS].sort());
+});
+
+test("the reader would notice if either list emptied itself out", () => {
+  // A regex that matched a renamed or restructured constant and returned
+  // nothing would pass both tests above against an empty JS list. Neither list
+  // is allowed to be empty, so a silent no-match cannot look like agreement.
+  assert.ok(pythonPanelIds("ALWAYS_VISIBLE_PANELS").length > 0);
+  assert.ok(pythonPanelIds("ROUTER_FALLBACK_PANELS").length > 0);
 });
