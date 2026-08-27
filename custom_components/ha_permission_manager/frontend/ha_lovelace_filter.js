@@ -193,6 +193,13 @@ const { findByLocalName } = await import(`./shadow_dom.js${ASSET_VERSION_QUERY}`
    * word. Two things keep this from crying wolf: a grace period, because a
    * dashboard that has not rendered yet is not a missing one, and the routed
    * panel having to be one that renders a dashboard at all.
+   *
+   * The message stays untranslated, unlike every string this integration puts
+   * on a user's screen — those come from the `I18N` maps in
+   * `ha_access_denied.js` and `ha_permission_manager.js`. This one is
+   * addressed to whoever is repairing the Filter, it names elements Home
+   * Assistant chose rather than anything this integration says, and it is
+   * read beside the stack traces around it.
    */
   function reportUnreachableDashboard(path) {
     const now = Date.now();
@@ -216,10 +223,10 @@ const { findByLocalName } = await import(`./shadow_dom.js${ASSET_VERSION_QUERY}`
     unreachableReportedPath = path;
     console.warn(
       "[LovelaceFilter] " + path + " is denied for this user, but no <" +
-        DASHBOARD_ROOTS.join(">, <") + "> was found on the page, so its content " +
+        DASHBOARD_ROOTS.join("> or <") + "> is on the page, so its content " +
         "has not been hidden. Home Assistant's element names have most likely " +
-        "changed; until this Filter is taught the new one, the Access Denied " +
-        "overlay is the only layer covering this page.",
+        "changed; until this Filter is taught them, the Access Denied page " +
+        "is the only layer covering this content.",
     );
   }
 
@@ -258,9 +265,9 @@ const { findByLocalName } = await import(`./shadow_dom.js${ASSET_VERSION_QUERY}`
    * there first on any full page load. Painting this message on top of it is
    * two answers to one question — which is what happened the moment issue #10
    * was fixed, because the broken traversal had meant this never ran on the
-   * default dashboard at all. The message earns its place only where the
-   * overlay does not run, such as a client-side navigation into a denied
-   * dashboard (issue #6, Mechanism B).
+   * default dashboard at all. The message earns its place only where
+   * the Access Denied Filter does not run, such as a client-side navigation
+   * into a denied dashboard (issue #6, Mechanism B).
    */
   function showNoAccessMessage() {
     const existing = document.getElementById("perm-manager-no-access-msg");

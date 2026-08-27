@@ -40,6 +40,13 @@ A JS module injected on every HA page that hides what a user has no View
 permission for. Three exist: sidebar filter, lovelace filter, access-denied.
 _Avoid_: guard, interceptor, middleware
 
+**Access Denied page**:
+The page the Access Denied Filter puts in place of a panel a user has no View
+permission for. A panel element of its own, with its own header and a sticky
+toolbar: it replaces the content rather than covering it, which is what keeps
+it apart from the Loading overlay below.
+_Avoid_: Access Denied overlay, access denied screen, 403 page
+
 **Loading overlay**:
 An opaque cover over a Home Assistant page, raised before anything is known
 about the user, so that no panel is visible until the Permission store has

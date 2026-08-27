@@ -1,5 +1,52 @@
 # Changelog
 
+## v2.0.8 — 2026-08-27
+
+### Fixed
+
+- **A console warning called the Access Denied page an overlay.** When
+  `ha_lovelace_filter.js` decides a dashboard is denied but cannot find the
+  element holding it, it says so on the console and names what is still
+  covering the content. It named the "Access Denied overlay" — a layer that
+  does not exist. `ha_access_denied.js` renders a panel element with its own
+  header and a sticky toolbar; the only overlay on these pages is the Loading
+  overlay, which `CONTEXT.md` took the word for in `8de9ea0`. So the sentence
+  used the forbidden spelling *and* pointed at the wrong layer, to a reader
+  who is there because the Filter has already failed once. Reported as issue
+  #22.
+
+  The whole sentence was rewritten, not just the two words. `DASHBOARD_ROOTS`
+  is interpolated into it and holds one element name today, so the old
+  "no `<a>`, `<b>` **was** found … taught the new **one**" only read while the
+  list stayed at one. It is now "no `<a>` or `<b>` **is** on the page … until
+  this Filter is taught **them**, the Access Denied page is the only layer
+  covering this content", which reads at either length.
+
+  The comment above `showNoAccessMessage()` made the same mistake about the
+  same layer and has been corrected with it.
+
+  The message stays untranslated, unlike every string this integration puts on
+  a user's screen — those come from the `I18N` maps in `ha_access_denied.js`
+  and `ha_permission_manager.js`, not from `translations/`, which holds the
+  config flow and the entity states. This one is addressed to whoever is
+  repairing the Filter and names elements Home Assistant chose.
+
+### Added
+
+- **`CONTEXT.md` now defines the Access Denied page**, the layer the corrected
+  sentence names. The Loading overlay entry already said what it is not; this
+  says what it is, and takes "Access Denied overlay" as its own _Avoid_.
+
+- `tests/console_vocabulary.test.mjs` holds the glossary over the prose the
+  frontend ships: no module may write "Access Denied overlay" in a string or a
+  comment, the unreachable-dashboard warning has to name the Access Denied
+  page, and its clause has to read whether `DASHBOARD_ROOTS` holds one element
+  name or three. A fourth test fails if `CONTEXT.md` ever gives the word back,
+  so the other three cannot outlive their reason. `docs/adr/` is deliberately
+  out of scope, on issue #22's own reasoning: an ADR is a dated record of what
+  was believed when it was written, so ADR-0005 and ADR-0006 keep their
+  wording.
+
 ## v2.0.7 — 2026-08-26
 
 ### Fixed
