@@ -1,0 +1,206 @@
+{
+  "label": "v2.0.8-after",
+  "instance": "http://192.168.2.6:8123",
+  "haVersion": "2026.7.2",
+  "servedAssets": [
+    "/ha_permission_manager_frontend/ha_lovelace_filter.js?v=2.0.8",
+    "/ha_permission_manager_frontend/ha_sidebar_filter.js?v=2.0.8",
+    "/ha_permission_manager_frontend/sidebar-title.js?v=2.0.8"
+  ],
+  "runs": [
+    {
+      "path": "/ha_permission_manager",
+      "hassReady": true,
+      "isAdmin": true,
+      "panelCount": 37,
+      "permissionManagerOffered": true,
+      "overlayLog": [
+        {
+          "state": "absent",
+          "atMs": 2296
+        },
+        {
+          "state": "present",
+          "atMs": 2375
+        },
+        {
+          "state": "absent",
+          "atMs": 2481
+        }
+      ],
+      "loadingOverlayPresent": false,
+      "loadingOverlayOpacity": null,
+      "centreIsOverlay": false,
+      "releasedAttr": true,
+      "overlayAppearedAtMs": 2375,
+      "releasedAfterMs": 106,
+      "sidebarLink": "/config",
+      "sidebarLinkFound": true,
+      "pathAfterClick": "/config/dashboard",
+      "clickNavigated": true,
+      "run": "admin-control",
+      "panel": "ha_permission_manager",
+      "brokenPolicyServed": [],
+      "errors": [],
+      "filterWarnings": []
+    },
+    {
+      "path": "/ha_permission_manager",
+      "hassReady": true,
+      "isAdmin": true,
+      "panelCount": 37,
+      "permissionManagerOffered": true,
+      "overlayLog": [
+        {
+          "state": "absent",
+          "atMs": 21
+        },
+        {
+          "state": "present",
+          "atMs": 64
+        },
+        {
+          "state": "absent",
+          "atMs": 270
+        }
+      ],
+      "loadingOverlayPresent": false,
+      "loadingOverlayOpacity": null,
+      "centreIsOverlay": false,
+      "releasedAttr": true,
+      "overlayAppearedAtMs": 64,
+      "releasedAfterMs": 206,
+      "sidebarLink": "/config",
+      "sidebarLinkFound": true,
+      "pathAfterClick": "/config/dashboard",
+      "clickNavigated": true,
+      "run": "admin-broken-link",
+      "panel": "ha_permission_manager",
+      "brokenPolicyServed": [
+        "http://192.168.2.6:8123/ha_permission_manager_frontend/permission_policy.js?v=2.0.8"
+      ],
+      "errors": [
+        "Unexpected token ';'",
+        "Unexpected token ';'"
+      ],
+      "filterWarnings": []
+    },
+    {
+      "path": "/ha_permission_manager",
+      "hassReady": true,
+      "isAdmin": true,
+      "panelCount": 37,
+      "permissionManagerOffered": true,
+      "overlayLog": [
+        {
+          "state": "absent",
+          "atMs": 17
+        },
+        {
+          "state": "present",
+          "atMs": 98
+        },
+        {
+          "state": "absent",
+          "atMs": 297
+        }
+      ],
+      "loadingOverlayPresent": false,
+      "loadingOverlayOpacity": null,
+      "centreIsOverlay": false,
+      "releasedAttr": true,
+      "overlayAppearedAtMs": 98,
+      "releasedAfterMs": 199,
+      "sidebarLink": "/config",
+      "sidebarLinkFound": true,
+      "pathAfterClick": "/config/dashboard",
+      "clickNavigated": true,
+      "run": "admin-broken-later",
+      "panel": "ha_permission_manager",
+      "brokenPolicyServed": [
+        "http://192.168.2.6:8123/ha_permission_manager_frontend/permission_policy.js?v=2.0.8"
+      ],
+      "errors": [
+        "panelsEqual is not a function"
+      ],
+      "filterWarnings": []
+    },
+    {
+      "path": "/home/overview",
+      "hassReady": true,
+      "isAdmin": false,
+      "panelCount": 5,
+      "permissionManagerOffered": false,
+      "overlayLog": [
+        {
+          "state": "absent",
+          "atMs": 16
+        },
+        {
+          "state": "present",
+          "atMs": 48
+        },
+        {
+          "state": "absent",
+          "atMs": 602
+        }
+      ],
+      "loadingOverlayPresent": false,
+      "loadingOverlayOpacity": null,
+      "centreIsOverlay": false,
+      "releasedAttr": false,
+      "overlayAppearedAtMs": 48,
+      "releasedAfterMs": 554,
+      "sidebarLink": "/profile",
+      "sidebarLinkFound": true,
+      "pathAfterClick": "/profile/general",
+      "clickNavigated": true,
+      "run": "nonadmin-control",
+      "panel": "home",
+      "brokenPolicyServed": [],
+      "errors": [
+        "Object"
+      ],
+      "filterWarnings": []
+    },
+    {
+      "path": "/home",
+      "hassReady": true,
+      "isAdmin": false,
+      "panelCount": 28,
+      "permissionManagerOffered": false,
+      "overlayLog": [
+        {
+          "state": "absent",
+          "atMs": 16
+        },
+        {
+          "state": "present",
+          "atMs": 53
+        }
+      ],
+      "loadingOverlayPresent": true,
+      "loadingOverlayOpacity": "1",
+      "centreIsOverlay": true,
+      "releasedAttr": false,
+      "overlayAppearedAtMs": 53,
+      "releasedAfterMs": null,
+      "sidebarLink": "/profile",
+      "sidebarLinkFound": true,
+      "pathAfterClick": "/home/overview",
+      "clickNavigated": false,
+      "run": "nonadmin-broken-later",
+      "panel": "home",
+      "brokenPolicyServed": [
+        "http://192.168.2.6:8123/ha_permission_manager_frontend/permission_policy.js?v=2.0.8"
+      ],
+      "errors": [
+        "Object",
+        "panelsEqual is not a function"
+      ],
+      "filterWarnings": [
+        "[LovelaceFilter] /home is denied for this user, but no <hui-root> is on the page, so its content has not been hidden. Home Assistant's element names have most likely changed; until this Filter is taught them, the Access Denied page is the only layer covering this content."
+      ]
+    }
+  ]
+}
