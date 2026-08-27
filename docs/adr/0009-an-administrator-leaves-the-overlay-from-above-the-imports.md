@@ -138,7 +138,36 @@ document. Source-text invariants in the idiom of
 is above the first `await import(`, and it never calls
 `removeLoadingOverlay()`.
 
-What the tests cannot prove is what a browser does with it. That is what a
-verification run on a live instance is for, in the shape of
-`tests/verify_issue_9.py`: break the frontend on purpose, load a page as an
-administrator, and watch the overlay go.
+What the tests cannot prove is what a browser does with it. That is
+`tests/verify_issue_15.py`, run on 192.168.2.6 (HA 2026.7.2) against both
+releases, breaking `permission_policy.js` on purpose at the network edge and
+loading the Permission Manager panel as the administrator.
+
+| as the administrator, on `/ha_permission_manager` | v2.0.6 | v2.0.7 |
+|---|---|---|
+| healthy load | lifted, 556 ms | lifted, 919 ms |
+| the import rejects (module unparseable) | **still up at 40 s** | lifted, 121 ms |
+| it throws later (`panelsEqual is not a function`) | **still up at 40 s** | lifted, 204 ms |
+| a click aimed at Settings, on either broken load | **swallowed** | lands on `/config/dashboard` |
+
+The click is the measurement that matters. Issue #15's complaint is not that the
+page is grey — it is that recovery costs a hard reload with a cleared cache, or
+SSH. On v2.0.6 a real mouse click aimed at the sidebar's Settings row leaves the
+URL where it was; on v2.0.7 it arrives.
+
+**The healthy-load figures are not a speed-up and should not be read as one.**
+Across runs they range from 128 ms to 919 ms on v2.0.7 and 479 ms to 556 ms on
+v2.0.6 — the same order of magnitude, and dominated by how quickly Home
+Assistant populates `hass.user`.
+
+Two things the run establishes beyond the table. The
+`data-perm-overlay-released` attribute is set on the administrator's **healthy**
+load too, so the release — not `removeLoadingOverlay()` — is now what lifts the
+overlay for an administrator on every path, and `removeLoadingOverlay()` finds
+nothing left to remove. And the non-admin case is unchanged in both directions:
+overlay still up at 40 s, click still swallowed, on both releases, with all 28
+panels in `hass.panels` behind it. That is #12 in the act, and this change
+neither improves nor worsens it.
+
+The Permission store was byte-identical before and after
+(`8c76507b966d9950…`); the run writes no Permission.

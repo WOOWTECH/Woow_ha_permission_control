@@ -40,6 +40,16 @@
   what it would then do to a non-admin is #12's decision — and why the removal
   is outright rather than faded.
 
+- `tests/verify_issue_15.py` breaks `permission_policy.js` at the network edge —
+  once so the import rejects, once so it throws later, the way v2.0.4 was
+  measured — and loads the Permission Manager panel as the administrator.
+  Measured on 192.168.2.6 (HA 2026.7.2): on v2.0.6 the overlay is still up after
+  40 seconds and a real click aimed at Settings is swallowed; on v2.0.7 it is
+  lifted in 121 ms and 204 ms and the click lands on `/config/dashboard`. The
+  non-admin is covered on both releases with the click swallowed on both, which
+  is the point. Read-only — the Permission store is byte-identical before and
+  after.
+
 - `tests/loading_overlay.test.mjs` slices the overlay block out of the shipped
   file and evaluates it against a fake document, because that region cannot be
   imported: it is the top of a module whose next statement is a top-level
