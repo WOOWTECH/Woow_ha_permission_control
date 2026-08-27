@@ -13,9 +13,9 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import label_registry as lr
 
-from .const import DOMAIN, PREFIX_PANEL, PREFIX_AREA, PREFIX_LABEL
+from .const import DOMAIN, PERM_VIEW, PREFIX_PANEL, PREFIX_AREA, PREFIX_LABEL
 from .discovery import get_registered_panels, unroutable_panel_ids
-from .panel_policy import admin_panel_resources
+from .panel_policy import admin_panel_resources, visible_panel_ids
 
 if TYPE_CHECKING:
     from homeassistant.components.websocket_api import ActiveConnection
@@ -25,11 +25,10 @@ _LOGGER = logging.getLogger(__name__)
 # Input validation pattern for IDs
 VALID_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
 
-# Permission levels (2-level model)
-# Level 0 = Closed (hidden, no access)
-# Level 1 = View (full access - can view and control)
-PERM_CLOSED = 0
-PERM_VIEW = 1
+# The Permission levels live in const.py, and PERM_VIEW is imported from there
+# above. This module kept a second copy of both levels until that import
+# arrived and silently shadowed it — two spellings of the same 0 and 1, in a
+# file whose whole subject is one answer to each question.
 
 # Resource types
 PERM_AREA_TYPE = "area"
@@ -495,53 +494,44 @@ def ws_get_panel_permissions(
 ) -> None:
     """Return panel permissions for the current user.
 
-    Uses Store-based permission data instead of entity state queries.
+    Returns dict of panel_id -> permission_level. A panel the user may receive
+    is reported at level 1, View; a panel they may not is absent, which is what
+    level 0, Closed, has always meant to every caller.
 
-    Returns dict of panel_id -> permission_level (0 or 1)
-    Level 0 = Closed (hidden, no access)
-    Level 1 = View (full access - can view and control)
+    The answer is panel_policy.visible_panel_ids() and nothing else, so this
+    report and the Panel Gate's decision cannot say different things about the
+    same user. Every rule that used to be spelt out here — an administrator
+    receives everything, a panel Home Assistant never routes to is refused
+    whatever the store holds — now lives there, once.
+
+    The Permission store keeps saying what it said: a level set on a panel that
+    is refused today is left alone, and comes back to life if the panel ever
+    becomes real.
     """
     user_id = connection.user.id
     is_admin = connection.user.is_admin
 
-    permissions: dict[str, int] = {}
-
-    # Get all permissions for this user from Store
-    user_perms = _get_user_permissions(hass, user_id)
-
-    # A Permission level on a panel Home Assistant never routes to cannot be
-    # honoured. Discovery stopped offering those Resources, but a level set
-    # before that stays in the Permission store — reporting it would put a
-    # sidebar entry there that only ever leads to Access Denied. The store row
-    # is left alone, so it comes back to life if the panel ever becomes real.
-    unroutable = unroutable_panel_ids(hass)
-
-    matched_panel = 0
-
-    for resource_id, perm_level in user_perms.items():
-        # Only process panel resources
-        if not resource_id.startswith(PREFIX_PANEL):
-            continue
-
-        matched_panel += 1
-
-        # Extract panel_id from resource_id (strip prefix)
-        panel_id = resource_id[len(PREFIX_PANEL):]
-
-        if panel_id in unroutable:
-            continue
-
-        # Admin users always get level 1 (full access) for permission_manager panel
-        if is_admin and panel_id == "ha_permission_manager":
-            perm_level = 1
-
-        permissions[panel_id] = perm_level
+    # Every registered panel is on the table here, where the Panel Gate will
+    # offer the smaller list Home Assistant already computed for this user.
+    # The two agree because the difference between those lists is Home
+    # Assistant's own administrator panels, and the Permission Manager panel
+    # has never offered a level on one, so nothing permits them either way.
+    panels = get_registered_panels(hass)
+    permissions: dict[str, int] = {
+        panel_id: PERM_VIEW
+        for panel_id in visible_panel_ids(
+            panel_ids=panels.keys(),
+            panels=panels,
+            user_permissions=_get_user_permissions(hass, user_id),
+            is_admin=is_admin,
+        )
+    }
 
     _LOGGER.debug(
-        "Panel permissions for user %s (is_admin=%s): matched_panel=%d, permissions=%s",
+        "Panel permissions for user %s (is_admin=%s): registered=%d, permissions=%s",
         user_id,
         is_admin,
-        matched_panel,
+        len(panels),
         permissions,
     )
 
@@ -584,9 +574,18 @@ def ws_get_all_permissions(
     # Get all permissions for this user from Store
     user_perms = _get_user_permissions(hass, user_id)
 
-    # The same exclusion get_panel_permissions makes. Reporting a level here
-    # that the other endpoint drops would have the Filters disagree about the
-    # same stored row. The store itself is left untouched either way.
+    # This endpoint answers a different question from get_panel_permissions:
+    # what the Permission store holds for this user, across all three kinds of
+    # Resource, levels and all. get_panel_permissions answers which panels the
+    # user may receive, and reads panel_policy.visible_panel_ids() for it.
+    #
+    # The one thing they must never differ on is whether a panel is permitted,
+    # so the exclusion that would break it is repeated here: a level on a panel
+    # Home Assistant never routes to is dropped from the report. Everything
+    # else the two say differently is the difference in the questions —
+    # `profile` and `notfound` carry no Permission level, and a Closed row is a
+    # refusal spelt out rather than left absent. The store is untouched either
+    # way.
     unroutable = unroutable_panel_ids(hass)
 
     for resource_id, perm_level in user_perms.items():

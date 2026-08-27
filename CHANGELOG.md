@@ -1,5 +1,105 @@
 # Changelog
 
+## v2.0.10 — 2026-08-27
+
+### Changed
+
+- **One function now says which panels a user may receive.**
+  `panel_policy.py` opens by claiming that every decision about which panels
+  the Permission Manager offers, reports, or honours lives there, so there is
+  exactly one answer to each question. The Panel Gate (#16) is about to ask one
+  of those questions in a second place, and the spike of it already answered
+  differently: a non-admin came back with five panels where the report said
+  four. The extra one was the stub `lovelace` that `is_unroutable_panel()`
+  exists for — the Permission store still holds `panel_lovelace: 1` for that
+  user from before discovery stopped offering it, `ws_get_panel_permissions`
+  drops it deliberately, and the Gate's own rule did not. Measured on
+  192.168.2.6, HA 2026.7.2.
+
+  `visible_panel_ids(panel_ids, panels, user_permissions, is_admin)` is now
+  that one answer, as a set. An administrator receives everything; `profile`
+  and `notfound` survive without a Permission level; a level above Closed on a
+  routable panel grants it; a panel Home Assistant never routes to is refused
+  whatever the store holds. The answer is always a subset of what the caller
+  offered, so the Gate can hand it the panels Home Assistant computed for that
+  user and get back no more than those.
+
+  `ALWAYS_VISIBLE_PANELS` and `ROUTER_FALLBACK_PANELS` join it as the Python
+  counterparts of the constants in `frontend/permission_policy.js`, which is
+  where those two panels were spelt out until now. Two layers that disagreed
+  about which panels need no Permission level would deny in one place what
+  they allow in the other, and nothing makes Python and JavaScript agree at
+  runtime — so `tests/permission_policy.test.mjs` reads both files and fails if
+  the lists ever part company.
+
+- **`get_panel_permissions` reports what that function decides**, so the report
+  and the Gate's decision cannot say different things about the same user. Its
+  answer used to be assembled here from the same rules written out a second
+  time, including a special case that handed an administrator level 1 on the
+  Permission Manager panel by name.
+
+  The payload changes shape without changing meaning. A panel the user may
+  receive is reported at View and a panel they may not is absent, where Closed
+  rows used to be reported alongside; `profile` and `notfound` are now named;
+  an administrator's report is every registered panel rather than their stored
+  rows. No Filter reads any of that differently — `isPermitted()` has always
+  meant a level above Closed, the same two panels have always been exempt from
+  it, and the Filters skip themselves entirely for an administrator. So no
+  sidebar gains or loses a row and no page that was reachable stops being
+  reachable, which is what lets this land ahead of the Gate itself.
+
+  Two edges of the old shape do go, and both are narrower than they sound.
+  What is reported is now decided over every panel Home Assistant has
+  registered rather than over the store's rows, so a level left behind on a
+  panel that no longer exists is no longer reported as View — a URL naming one
+  used to be allowed by `checkCurrentPanelAccess`, and Home Assistant's own
+  router was already rewriting it. And `profile` and `notfound`, now that they
+  are named, are eligible destinations for `resolveRedirectTarget` — reachable
+  only where `hass.defaultPanel` or the stored `defaultPanel` names one of
+  them, and `profile` is a page that user may always open anyway.
+
+  The Permission store is untouched, as before: a level on a panel that is
+  refused today stays where it is and comes back to life if the panel ever
+  becomes real.
+
+  `get_all_permissions` still answers its own question — what the store holds
+  for this user, across all three kinds of Resource — and still makes the one
+  exclusion that would otherwise have the two endpoints disagree about whether
+  a panel is permitted. Its comment claimed to make "the same exclusion
+  get_panel_permissions makes", which stopped being true here; it now says
+  which question each endpoint answers and where they are allowed to differ.
+
+### Added
+
+- Ten tests in `tests/test_panel_policy.py` over the new function, offline and
+  with no Home Assistant, starting with the case that made it necessary: the
+  store row present and the stub panel still refused. They also pin the parts
+  that are easy to get right once and lose later — that a Permission level is
+  read off the prefixed Resource id and not a bare panel id, that nothing comes
+  back that was not offered, and that a non-admin given View on every panel the
+  Permission Manager panel offers receives exactly those, plus their own
+  account page.
+
+  The suite now loads `panel_policy` through a stand-in package rather than off
+  a flat `sys.path`, so the module can read its constants from the package's
+  `const.py` — both files are free of Home Assistant, and the package's
+  `__init__.py`, which is not, still never runs.
+
+- Three tests in `tests/permission_policy.test.mjs` that read `panel_policy.py`
+  as text and hold its two exempt-panel lists to what the JavaScript exports,
+  in the idiom `tests/console_vocabulary.test.mjs` and
+  `tests/frontend_assets.test.mjs` already use. The third exists because a
+  regex that matched a renamed constant and returned nothing would otherwise
+  pass the first two against an empty list.
+
+### Fixed
+
+- **`websocket_api.py` kept a second copy of `PERM_CLOSED` and `PERM_VIEW`**,
+  four lines below the import of the same two names from `const.py` and
+  silently shadowing it. Both spellings said 0 and 1, so nothing behaved
+  differently, but a file whose subject is one answer to each question had two
+  answers to this one. The local copies are gone.
+
 ## v2.0.9 — 2026-08-27
 
 ### Fixed
