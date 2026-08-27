@@ -40,6 +40,18 @@ A JS module injected on every HA page that hides what a user has no View
 permission for. Three exist: sidebar filter, lovelace filter, access-denied.
 _Avoid_: guard, interceptor, middleware
 
+**Loading overlay**:
+An opaque cover over a Home Assistant page, raised before anything is known
+about the user, so that no panel is visible until the Permission store has
+been applied. One owner: the sidebar Filter raises it and the lovelace Filter
+defers to it. It lifts itself for an administrator as soon as Home Assistant
+says who the user is, without waiting for anything a Filter imports (ADR-0009).
+For anyone else only the Filter that raised it lifts it, when that Filter
+finishes — so a Filter that never finishes leaves it up. The Access Denied
+Filter's page is not one of these. Expected to go with the Filters when the
+Panel Gate lands.
+_Avoid_: Access Denied overlay, loading screen, splash, spinner
+
 **Panel Gate**:
 The backend layer that decides which panels leave Home Assistant. It wraps Home
 Assistant's own `get_panels`, drops the panels a non-administrator has no View
