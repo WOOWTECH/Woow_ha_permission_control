@@ -71,10 +71,34 @@
   the store made a change of its own, and therefore has an announcement to
   forget.
 
+- `tests/verify_issue_14.py`, the issue's own instrument made repeatable, and
+  its records in `tests/screenshots/issue-14/`. Measured on 192.168.2.6
+  (HA 2026.7.2), on v2.0.8 and then on v2.0.9, then on v2.0.8 again after a
+  rollback so all seven cases were measured on both:
+
+  | Write path | v2.0.8 | v2.0.9 |
+  | --- | --- | --- |
+  | `set_permission` | 1 | 1 |
+  | `bulk_set_permissions` | 1 | 1 |
+  | `remove_resource_permissions` | **0** | 1 |
+  | `remove_user_permissions` | **0** | 1 |
+  | `remove_user_permissions`, on a user holding nothing | **0** | 1 |
+  | `reset_all_permissions` | 1 | 1 |
+  | an area deletion, through the registry listener | **0** | 1 |
+
+  Every case answered HTTP 200 on both versions, which is the shape of the
+  defect: the write succeeded and said nothing. The last row is not in the
+  issue and is the one to care most about — deleting an area in the Home
+  Assistant UI revoked every Permission level on it, with no service handler
+  and nobody watching a page. `reset_all_permissions` was called, which #14
+  declined to do; the script reads the store first and restores it, and the
+  instance's `.storage/ha_permission_manager` came back byte-identical, same
+  sha256, on both runs.
+
 - ADR-0010, recording the single write path, why an unconditional announcement
-  is the cheaper way to be wrong, and what is left open — including that
-  `reset_all_permissions` has still never been run against a live instance, for
-  the reason issue #14 gives for not calling it.
+  is the cheaper way to be wrong, the measurement above, and what is left open
+  — including that every row of it was read as an administrator, because Home
+  Assistant refuses a non-admin the subscription (#13).
 
   It also surfaces a conflict rather than overriding it quietly: issue #19 sets
   out, for ADR-0009 to carry, that `permission_manager_updated` is
