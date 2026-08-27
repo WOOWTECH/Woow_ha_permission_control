@@ -35,6 +35,15 @@ The `Store`-backed map from user id to Resource id to Permission level, persiste
 at `.storage/ha_permission_manager`. The single source of truth.
 _Avoid_: database, config, settings
 
+**Announcement**:
+What a write to the Permission store says about itself: the
+`permission_manager_updated` event, fired from the one place the store can be
+written from. It means "the store has been written to, re-read it" and nothing
+more — every consumer re-fetches, none reads the payload, and the payload is
+diagnostic detail for whoever is reading a trace (ADR-0010). Every write path
+makes one, whether or not the store ended up different.
+_Avoid_: notification, permission change event, delta, the payload as a contract
+
 **Filter**:
 A JS module injected on every HA page that hides what a user has no View
 permission for. Three exist: sidebar filter, lovelace filter, access-denied.

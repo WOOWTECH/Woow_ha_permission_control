@@ -760,15 +760,29 @@ curl -s -X POST "${API}/reset_all_permissions" \
 ## Events / 事件
 
 All write operations fire a `permission_manager_updated` event on the HA event bus.
-Frontend UIs listen to this event to refresh their display immediately.
+The two Filters injected on every page listen for it and re-apply themselves
+immediately. The Permission Manager panel does not — it updates its own state
+as it writes, and subscribes to nothing.
+
+Until v2.0.9 the two removals did not, despite what this table said (issue #14).
+They do now, and so does every other write path — including the registry
+listeners that remove permissions when a user, area, label or dashboard is
+deleted. A write announces whether or not the store ended up different.
+
+**The event data is diagnostic, not a contract** (ADR-0010). It says "the
+permission store has been written to, re-read it" and nothing more. Read it in a
+trace; do not branch on it. Fetch the store with `get_all_permissions` instead.
 
 | Service | Event Data |
 |---------|------------|
-| `set_permission` | `{"user_id": "...", "resource_id": "...", "level": 0\|1}` |
+| `set_permission` | `{"action": "set", "user_id": "...", "resource_id": "...", "level": 0\|1}` |
 | `bulk_set_permissions` | `{"action": "bulk_set", "count": N}` |
-| `remove_user_permissions` | (fired by underlying function) |
-| `remove_resource_permissions` | (fired by underlying function) |
-| `reset_all_permissions` | `{"action": "reset_all"}` |
+| `remove_user_permissions` | `{"action": "remove_user", "user_id": "...", "count": N}` |
+| `remove_resource_permissions` | `{"action": "remove_resource", "resource_id": "...", "count": N}` |
+| `reset_all_permissions` | `{"action": "reset_all", "count": N}` |
+
+`count` is what the write touched: Resources dropped for `remove_user`, users
+affected for `remove_resource` and `reset_all`, entries applied for `bulk_set`.
 
 ---
 

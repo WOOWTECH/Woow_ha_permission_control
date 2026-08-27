@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,8 @@ from .const import (
     CONTROL_PANEL_TITLE_ZH,
     CONTROL_PANEL_ICON,
 )
+from . import permission_store
+from .permission_store import EVENT_PERMISSION_MANAGER_UPDATED
 from .services import async_register_services, async_unregister_services
 from .websocket_api import async_register_websocket_api
 
@@ -414,6 +417,43 @@ async def async_get_permission(
     return user_perms.get(resource_id, PERM_CLOSED)
 
 
+async def _async_write(
+    hass: HomeAssistant,
+    write: Callable[[permission_store.Permissions], dict[str, Any]],
+) -> dict[str, Any]:
+    """Apply one write to the Permission store, persist it, and announce it.
+
+    The only way this integration writes the store. Persisting and announcing
+    live here rather than in each helper so that a write path cannot be added
+    without both — issue #14, where two of five write paths were added without
+    the announcement, and the two were the revocations.
+
+    `write` is one of the functions in permission_store: it mutates the map and
+    returns what to announce, which is returned here too so the caller can log
+    what it did.
+
+    Args:
+        hass: Home Assistant instance.
+        write: A permission_store write, already bound to its arguments.
+
+    Returns:
+        The announcement that was fired.
+    """
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    permissions = domain_data.setdefault("permissions", {})
+
+    announcement = write(permissions)
+
+    # Schedule async save
+    await async_save_permissions(hass)
+
+    # Fire event so frontends can react immediately (replaces polling). The
+    # payload is diagnostic: every consumer re-fetches — see ADR-0010.
+    hass.bus.async_fire(EVENT_PERMISSION_MANAGER_UPDATED, announcement)
+
+    return announcement
+
+
 async def async_set_permission(
     hass: HomeAssistant, user_id: str, resource_id: str, level: int
 ) -> None:
@@ -425,27 +465,45 @@ async def async_set_permission(
         resource_id: The resource ID (e.g., "area_living_room", "panel_config").
         level: Permission level (0=Closed, 1=View).
     """
-    domain_data = hass.data.get(DOMAIN, {})
-    permissions = domain_data.setdefault("permissions", {})
-
-    if user_id not in permissions:
-        permissions[user_id] = {}
-
-    permissions[user_id][resource_id] = level
+    await _async_write(
+        hass,
+        lambda permissions: permission_store.set_permission(
+            permissions, user_id, resource_id, level
+        ),
+    )
     _LOGGER.debug(
         "Set permission: user=%s, resource=%s, level=%d",
         user_id, resource_id, level
     )
 
-    # Schedule async save
-    await async_save_permissions(hass)
 
-    # Fire event so frontends can react immediately (replaces polling)
-    hass.bus.async_fire("permission_manager_updated", {
-        "user_id": user_id,
-        "resource_id": resource_id,
-        "level": level,
-    })
+async def async_bulk_set_permissions(
+    hass: HomeAssistant, entries: list[dict[str, Any]]
+) -> None:
+    """Set many permission levels, saving and announcing once for the batch.
+
+    Args:
+        hass: Home Assistant instance.
+        entries: Dicts of user_id, resource_id and level, already validated.
+    """
+    announcement = await _async_write(
+        hass,
+        lambda permissions: permission_store.bulk_set_permissions(permissions, entries),
+    )
+    # Debug, like async_set_permission: the only caller is the service handler,
+    # and it logs the call itself. The delete helpers below log at info because
+    # the registry listeners reach them with nothing else recording it.
+    _LOGGER.debug("Bulk set %d permission entries", announcement["count"])
+
+
+async def async_reset_all_permissions(hass: HomeAssistant) -> None:
+    """Clear the entire Permission store.
+
+    Args:
+        hass: Home Assistant instance.
+    """
+    announcement = await _async_write(hass, permission_store.reset_all_permissions)
+    _LOGGER.debug("Cleared all permissions: %d users affected", announcement["count"])
 
 
 @callback
@@ -481,19 +539,23 @@ def async_get_user_permissions(hass: HomeAssistant, user_id: str) -> dict[str, i
 async def async_delete_user_permissions(hass: HomeAssistant, user_id: str) -> None:
     """Delete all permissions for a user.
 
-    Called when a user is removed from Home Assistant.
+    Called when a user is removed from Home Assistant, and by the
+    remove_user_permissions service.
 
     Args:
         hass: Home Assistant instance.
         user_id: The user ID to delete permissions for.
     """
-    domain_data = hass.data.get(DOMAIN, {})
-    permissions = domain_data.get("permissions", {})
-
-    if user_id in permissions:
-        del permissions[user_id]
-        _LOGGER.info("Deleted all permissions for user: %s", user_id)
-        await async_save_permissions(hass)
+    announcement = await _async_write(
+        hass,
+        lambda permissions: permission_store.remove_user_permissions(
+            permissions, user_id
+        ),
+    )
+    _LOGGER.info(
+        "Deleted all permissions for user %s: %d resources",
+        user_id, announcement["count"],
+    )
 
 
 async def async_delete_resource_permissions(
@@ -501,24 +563,23 @@ async def async_delete_resource_permissions(
 ) -> None:
     """Delete permissions for a resource from all users.
 
-    Called when a resource (area, label, panel) is removed.
+    Called when a resource (area, label, panel) is removed, and by the
+    remove_resource_permissions service.
 
     Args:
         hass: Home Assistant instance.
         resource_id: The resource ID to delete permissions for.
     """
-    domain_data = hass.data.get(DOMAIN, {})
-    permissions = domain_data.get("permissions", {})
-
-    modified = False
-    for user_id in permissions:
-        if resource_id in permissions[user_id]:
-            del permissions[user_id][resource_id]
-            modified = True
-
-    if modified:
-        _LOGGER.info("Deleted permissions for resource: %s", resource_id)
-        await async_save_permissions(hass)
+    announcement = await _async_write(
+        hass,
+        lambda permissions: permission_store.remove_resource_permissions(
+            permissions, resource_id
+        ),
+    )
+    _LOGGER.info(
+        "Deleted permissions for resource %s: %d users",
+        resource_id, announcement["count"],
+    )
 
 
 async def async_save_permissions(hass: HomeAssistant) -> None:

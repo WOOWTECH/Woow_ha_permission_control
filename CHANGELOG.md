@@ -1,5 +1,89 @@
 # Changelog
 
+## v2.0.9 — 2026-08-27
+
+### Fixed
+
+- **Taking a Permission away told no live page about it.** Five services write
+  the Permission store; three fired `permission_manager_updated` and two did
+  not, and the two silent ones were the revocations —
+  `remove_user_permissions` and `remove_resource_permissions`. Both wrote the
+  store and returned. So did the registry listeners that call the same two
+  helpers when a user, an area, a label or a dashboard is deleted. Reported as
+  issue #14, measured on 192.168.2.6 (HA 2026.7.2): both services answered 200
+  and delivered zero events.
+
+  Both now announce, and so does every other write path, because there is only
+  one of them left. `_async_write()` in `__init__.py` is the single place this
+  integration writes the store: it applies the change, saves it, and fires the
+  event. `bulk_set_permissions` and `reset_all_permissions` used to reach into
+  `hass.data` from their service handlers and fire for themselves — they now go
+  through helpers alongside the other three, which is what makes "a write path
+  cannot be added without an announcement" a property of the code rather than
+  of whoever writes the next one.
+
+  The guards that skipped the save when nothing changed are gone with them. An
+  announcement means "re-read the store", not "something changed", and every
+  consumer re-fetches and compares — so a spurious one costs a round trip and
+  no re-render, while a missing one is this bug. ADR-0010 has the trade.
+
+  Two things about the impact, since issue #14 states it more strongly than the
+  code supports. The Permission Manager panel does **not** listen for this
+  event — it subscribes to nothing, and has no removal control; the two remove
+  services are reachable from Developer Tools and the REST API. What listens on
+  an administrator's page is the two Filters, so what the fix buys today is
+  their own sidebar and dashboard re-filtering after a revocation instead of
+  waiting for a reload. And it stays bounded by #13 until #13 is fixed: Home
+  Assistant refuses a non-admin's subscription to this event, so no non-admin
+  page receives the announcement however reliably it is fired.
+
+### Changed
+
+- **`docs/services-guide.md`'s Events table said the removals fired the event**
+  — "(fired by underlying function)", of a function that did not — under a
+  heading reading "All write operations fire". The design this was built from,
+  `docs/plans/2026-05-15-permission-services-design.md`, specifies the event
+  under all five services too. Both documents have been right about this since
+  2026-05-15 and the code has not; the table now carries the settled shape of
+  each announcement and says what it is for.
+
+### Added
+
+- **`permission_store.py`**, holding every write to the Permission store as a
+  pure function over the map — no Home Assistant, in the idiom
+  `panel_policy.py` established. Each returns the announcement it owes, so a
+  write that says nothing about itself does not type as a write.
+
+- **The announcement payload is settled, and it means nothing.** Issue #14
+  noticed the shapes differed per site (`{user_id, resource_id, level}` against
+  `{action, count}`). They are now uniform — every announcement carries an
+  `action` naming one of the five write paths, plus the ids and a `count` of
+  what was touched — and uniformly diagnostic. Both Filters ignore the payload
+  and re-fetch, which is the behaviour ADR-0010 records as the contract; a test
+  holds them to not reading `event.data`, so the payload cannot quietly become
+  one.
+
+- `tests/test_permission_store.py`, offline and in CI: what each of the five
+  writes does to the store, what each announces, and three source-text
+  invariants — the event name is spelt once, it is fired from exactly one
+  place, and `async_save_permissions` is called from `__init__.py` alone. That
+  last one is the tell for this whole class of defect: a module that persists
+  the store made a change of its own, and therefore has an announcement to
+  forget.
+
+- ADR-0010, recording the single write path, why an unconditional announcement
+  is the cheaper way to be wrong, and what is left open — including that
+  `reset_all_permissions` has still never been run against a live instance, for
+  the reason issue #14 gives for not calling it.
+
+  It also surfaces a conflict rather than overriding it quietly: issue #19 sets
+  out, for ADR-0009 to carry, that `permission_manager_updated` is
+  "fine-grained, carries user/resource/level, for the Permission Manager
+  panel". Neither half holds — the panel does not subscribe, and `bulk_set` and
+  `reset_all` never carried those fields. The rest of #19 stands; its argument
+  for firing `panels_updated` at the write paths is about reliability, not
+  about this payload.
+
 ## v2.0.8 — 2026-08-27
 
 ### Fixed
