@@ -1,0 +1,152 @@
+{
+  "cases": [
+    {
+      "case": "set_permission",
+      "data": {
+        "level": 1,
+        "resource_id": "area_verify14",
+        "user_id": "verify14user"
+      },
+      "events": 1,
+      "http": 200,
+      "payloads": [
+        {
+          "action": "set",
+          "level": 1,
+          "resource_id": "area_verify14",
+          "user_id": "verify14user"
+        }
+      ],
+      "service": "set_permission"
+    },
+    {
+      "case": "bulk_set_permissions",
+      "data": {
+        "permissions": [
+          {
+            "level": 0,
+            "resource_id": "area_verify14",
+            "user_id": "verify14user"
+          },
+          {
+            "level": 1,
+            "resource_id": "label_verify14",
+            "user_id": "verify14user"
+          }
+        ]
+      },
+      "events": 1,
+      "http": 200,
+      "payloads": [
+        {
+          "action": "bulk_set",
+          "count": 2
+        }
+      ],
+      "service": "bulk_set_permissions"
+    },
+    {
+      "case": "remove_resource_permissions",
+      "data": {
+        "resource_id": "area_verify14"
+      },
+      "events": 1,
+      "http": 200,
+      "payloads": [
+        {
+          "action": "remove_resource",
+          "count": 1,
+          "resource_id": "area_verify14"
+        }
+      ],
+      "service": "remove_resource_permissions"
+    },
+    {
+      "case": "remove_user_permissions",
+      "data": {
+        "user_id": "verify14user"
+      },
+      "events": 1,
+      "http": 200,
+      "payloads": [
+        {
+          "action": "remove_user",
+          "count": 1,
+          "user_id": "verify14user"
+        }
+      ],
+      "service": "remove_user_permissions"
+    },
+    {
+      "case": "remove_user_permissions (no-op)",
+      "data": {
+        "user_id": "verify14user"
+      },
+      "events": 1,
+      "http": 200,
+      "payloads": [
+        {
+          "action": "remove_user",
+          "count": 0,
+          "user_id": "verify14user"
+        }
+      ],
+      "service": "remove_user_permissions"
+    },
+    {
+      "case": "reset_all_permissions",
+      "data": {
+        "confirm": true
+      },
+      "events": 1,
+      "http": 200,
+      "payloads": [
+        {
+          "action": "reset_all",
+          "count": 1
+        }
+      ],
+      "service": "reset_all_permissions"
+    },
+    {
+      "case": "area deletion (registry listener)",
+      "data": {
+        "area_id": "verify14_scratch_area",
+        "resource_id": "area_verify14_scratch_area"
+      },
+      "events": 1,
+      "http": 200,
+      "payloads": [
+        {
+          "action": "remove_resource",
+          "count": 1,
+          "resource_id": "area_verify14_scratch_area"
+        }
+      ],
+      "service": "config/area_registry/delete"
+    }
+  ],
+  "event": "permission_manager_updated",
+  "label": "v2.0.9",
+  "silent": [],
+  "store_before": {
+    "9eafc87fb1d44f8fb0677e428fcea9aa": {
+      "area_chu_fang": 1,
+      "area_ke_ting": 1,
+      "area_wo_shi": 0,
+      "label_an_quan": 0,
+      "label_chuang_lian": 0,
+      "label_kong_diao": 1,
+      "label_zhao_ming": 1,
+      "panel_config": 0,
+      "panel_core_configurator": 0,
+      "panel_energy": 1,
+      "panel_ha-control-panel": 1,
+      "panel_ha_permission_manager": 0,
+      "panel_home": 0,
+      "panel_lovelace": 1
+    }
+  },
+  "store_restored": true,
+  "url": "http://192.168.2.6:8123"
+}

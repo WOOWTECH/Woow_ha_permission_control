@@ -100,6 +100,47 @@ a year, on a page that already re-fetches on `user_updated`,
 `homeassistant_auth_updated` and every `lovelace_updated` — including the
 dashboard deletion this now announces a second time, half a second earlier.
 
+## Measured on the instance, before and after
+
+`tests/verify_issue_14.py` is the issue's own instrument, made repeatable: it
+subscribes to the event from an administrator's connection, calls each write
+service over the REST API, and counts what arrives. It was run on 192.168.2.6
+(HA 2026.7.2) against v2.0.8, then against v2.0.9, then against v2.0.8 again
+after a rollback so that all seven cases were measured on both. Records are in
+`tests/screenshots/issue-14/`.
+
+| Write path | v2.0.8 | v2.0.9 |
+| --- | --- | --- |
+| `set_permission` | 1 | 1 |
+| `bulk_set_permissions` | 1 | 1 |
+| `remove_resource_permissions` | **0** | 1 |
+| `remove_user_permissions` | **0** | 1 |
+| `remove_user_permissions`, on a user holding nothing | **0** | 1 |
+| `reset_all_permissions` | 1 | 1 |
+| an area deletion, through the registry listener | **0** | 1 |
+
+Every case answered HTTP 200 on both versions, which is the shape of the defect:
+the write succeeded and said nothing.
+
+The last row is the one the issue does not measure and the reason to care most.
+`async_delete_resource_permissions` is reached from
+`_handle_area_registry_update` with no service handler in front of it, so an
+administrator deleting an area in the Home Assistant UI revoked every Permission
+level on it and no page was told. Nobody is watching a page for that. The case
+creates its own area, grants a level on it, deletes it, and cleans up.
+
+`reset_all_permissions` was called, which #14 declined to do — "it erases the
+store". The script reads the whole store first, restores it through
+`bulk_set_permissions` at the end, and checks the result; the instance's
+`.storage/ha_permission_manager` came back byte-identical to the backup taken
+before the run, same sha256, on both versions. That is the condition on which
+this ADR's "no live test" caveat is now withdrawn.
+
+The payloads are in the records too, and they are what the section above
+describes: `set_permission` on v2.0.8 carried `{user_id, resource_id, level}`
+and now carries the same plus `action`, and `reset_all` carried `{action}` and
+now carries a `count`.
+
 ## What the fix is worth today, measured against the issue
 
 Issue #14 says an administrator watching a removal "sees nothing happen" because
@@ -143,10 +184,12 @@ Filters, and what it actually says is "re-read the store". The rest of #19 is
 unaffected: it is an argument for firing `panels_updated` at the write paths
 rather than relaying, and that argument is about reliability, not payload.
 
-**`reset_all_permissions` still has no test against a live instance.** #14
-declined to call it for the reason it gives: it erases the store. It is covered
-here as a pure function and by source text, and by nothing that has run against
-Home Assistant.
+**Nothing here was measured as a non-admin, and cannot be.** Every row of the
+table above was read from an administrator's connection, because Home Assistant
+refuses a non-admin's subscription to this event (#13). So the announcement is
+proven to leave the backend and proven to arrive at an administrator's page.
+Whether the user a revocation is *about* ever sees it is #13's question, and
+this ADR cannot answer it.
 
 **Whether a `count` of `0` should read differently from a `count` that is
 absent** is unanswered because nothing reads either. It becomes a question the
