@@ -1,4 +1,5 @@
-"""Pure panel decisions, shared by discovery and the WebSocket API.
+"""Pure panel decisions, shared by discovery, the WebSocket API and the
+listeners in __init__.py.
 
 This module deliberately imports nothing from Home Assistant. Every decision
 about which panels the Permission Manager offers, reports, or honours lives
@@ -159,7 +160,7 @@ def visible_panel_ids(
 
 
 def deleted_dashboard_resource_id(
-    url_path: str | None, panels: Mapping[str, Any] | None
+    url_path: str | None, panels: Mapping[str, Any]
 ) -> str | None:
     """The panel Resource a `lovelace_updated` event has left with nothing behind it.
 

@@ -392,4 +392,3 @@ def test_an_unreadable_panel_registry_deletes_nothing():
     ordinary save, so an unreadable registry decides nothing.
     """
     assert deleted_dashboard_resource_id("dashboard-kitchen", {}) is None
-    assert deleted_dashboard_resource_id("dashboard-kitchen", None) is None

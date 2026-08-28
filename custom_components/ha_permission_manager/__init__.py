@@ -29,7 +29,6 @@ from .const import (
     PERM_CLOSED,
     PREFIX_AREA,
     PREFIX_LABEL,
-    PREFIX_PANEL,
     STORAGE_KEY,
     STORAGE_VERSION,
     # Control Panel constants
@@ -113,20 +112,6 @@ def _get_control_panel_title(hass: HomeAssistant) -> str:
     if language.startswith("zh"):
         return CONTROL_PANEL_TITLE_ZH
     return CONTROL_PANEL_TITLE
-
-
-# Key for frontend panels storage (internal HA structure)
-_FRONTEND_PANELS_KEY = "frontend_panels"
-
-
-def _get_frontend_panels(hass: HomeAssistant) -> dict[str, Any]:
-    """Get frontend panels using available API.
-
-    Note: This accesses hass.data["frontend_panels"] which is an internal API.
-    We wrap it in a helper function to centralize the access point and make
-    it easier to update if HA provides a public API in the future.
-    """
-    return hass.data.get(_FRONTEND_PANELS_KEY, {})
 
 
 # Event types
@@ -328,7 +313,6 @@ async def _async_setup_listeners(hass: HomeAssistant) -> None:
             if resource_id is None:
                 return
 
-            # Clean up permissions from Store
             await async_delete_resource_permissions(hass, resource_id)
             _LOGGER.info("Removed permissions for deleted dashboard: %s", url_path)
 
@@ -398,7 +382,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
 
     # Register the Permission Manager admin panel
     # Only register if not already registered
-    if PANEL_URL not in _get_frontend_panels(hass):
+    if PANEL_URL not in get_registered_panels(hass):
         async_register_built_in_panel(
             hass,
             component_name="custom",
@@ -416,7 +400,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
 
     # Register the unified Control Panel (for all users)
     # The only device-control surface this integration ships (see ADR-0002)
-    if CONTROL_PANEL_URL not in _get_frontend_panels(hass):
+    if CONTROL_PANEL_URL not in get_registered_panels(hass):
         async_register_built_in_panel(
             hass,
             component_name="custom",
