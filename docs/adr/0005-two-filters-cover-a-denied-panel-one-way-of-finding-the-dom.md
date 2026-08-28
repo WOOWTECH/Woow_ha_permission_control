@@ -2,7 +2,7 @@
 
 > **Superseded by [ADR-0011](0011-the-panel-decision-moves-into-the-backend.md).**
 > Both Filters, and the Access Denied page they put up, were deleted in
-> v3.0.0 (#20): the Panel Gate makes a denied panel absent, so there is
+> v2.0.13 (#20): the Panel Gate makes a denied panel absent, so there is
 > nothing left to cover and no DOM to find it in. Kept as the record of how
 > they worked, and of why two of them existed.
 

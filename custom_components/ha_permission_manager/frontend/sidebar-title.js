@@ -7,7 +7,7 @@
  * The only thing this integration injects into a page it does not own, and it
  * decides nothing: a panel this user may not see is not in hass.panels to be
  * retitled, because the Panel Gate dropped it before the map left Home
- * Assistant (ADR-0011). Until v3.0.0 the sidebar Filter hid a denied panel by
+ * Assistant (ADR-0011). Until v2.0.13 the sidebar Filter hid a denied panel by
  * taking its title away and this file had to ask before writing one back
  * (issue #6, Mechanism A); there is no such panel and no such mark now.
  */

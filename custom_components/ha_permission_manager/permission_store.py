@@ -13,7 +13,7 @@ announce, which is the whole of issue #14: two of the five writes used to
 return nothing, and the two were the revocations.
 
 **The announcement is diagnostic, not a contract.** It says "the Permission
-store has been written to, re-read it", and nothing more. Since v3.0.0 nothing
+store has been written to, re-read it", and nothing more. Since v2.0.13 nothing
 this integration ships even listens: the Filters that re-fetched on it are gone
 and a live page hears about a Permission change over `panels_updated`, which
 carries no payload to branch on. `action` is there so a reader of a trace can
@@ -27,7 +27,7 @@ from typing import Any, Iterable, Mapping, MutableMapping
 # The name an announcement goes out under. Nothing in this repo subscribes to
 # it — not the Permission Manager panel, which updates its own state as it
 # writes (ADR-0010), and not the frontend, which has had nothing on a page to
-# update since v3.0.0. Spelt once anyway, so a rename cannot leave a listener
+# update since v2.0.13. Spelt once anyway, so a rename cannot leave a listener
 # behind on the old string.
 EVENT_PERMISSION_MANAGER_UPDATED = "permission_manager_updated"
 

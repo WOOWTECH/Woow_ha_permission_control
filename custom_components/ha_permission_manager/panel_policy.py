@@ -5,7 +5,7 @@ about which panels the Permission Manager offers, reports, or honours lives
 here, so there is exactly one answer to each question and it can be unit
 tested offline. Reading panels off `hass` stays in discovery.py.
 
-Until v3.0.0 this module had a frontend counterpart, permission_policy.js, and
+Until v2.0.13 this module had a frontend counterpart, permission_policy.js, and
 the two had to be kept saying the same thing. The Panel Gate reads its answer
 from here and the browser is told nothing, so this is now the only spelling.
 """
@@ -61,7 +61,7 @@ ADMIN_ONLY_PANELS = frozenset({"developer-tools", "config", "profile"})
 # own account page, which is no Resource and which the Permission Manager
 # panel has never offered a level on.
 #
-# This and ROUTER_FALLBACK_PANELS below had JavaScript twins until v3.0.0, and
+# This and ROUTER_FALLBACK_PANELS below had JavaScript twins until v2.0.13, and
 # a test read both files because nothing made them agree at runtime: two layers
 # disagreeing about which panels need no Permission would deny in one place
 # what they allowed in the other. There is one layer now, and this is it.

@@ -20,11 +20,11 @@ So this script captures, per identity, straight off the WebSocket:
 and reads the sidebar straight off `panel_ids`. Two runs either side of a
 deploy are compared on that set.
 
-Captures taken before v3.0.0 computed the sidebar instead, by handing the pair
+Captures taken before v2.0.13 computed the sidebar instead, by handing the pair
 to the frontend's `filterPanels()`, because a browser then received every panel
 and the Filters decided which of them to draw. A `--compare` across that
 boundary therefore holds a computed sidebar against a delivered one, which is
-exactly the claim v3.0.0 makes: they are the same set.
+exactly the claim v2.0.13 makes: they are the same set.
 
 The two questions only a live instance answers:
 
@@ -158,7 +158,7 @@ async def _capture(token: str) -> dict:
 def _sidebars(capture: dict) -> dict:
     """The sidebar each identity sees: the panels they were sent, and no rule.
 
-    Nothing is computed here, on purpose. Since v3.0.0 the Panel Gate drops a
+    Nothing is computed here, on purpose. Since v2.0.13 the Panel Gate drops a
     denied panel before `get_panels` answers, so what a browser receives is
     what it draws. Restating any rule at this point would measure this
     script's opinion of the sidebar rather than the instance's answer.

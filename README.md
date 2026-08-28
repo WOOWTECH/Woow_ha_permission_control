@@ -155,7 +155,7 @@ connection can read its own permissions and nothing else.
 - The **Panel Gate** wraps Home Assistant's own `get_panels`, so a panel a user
   has no View permission for never reaches their browser at all
 
-> The decision is made in Home Assistant, not in the browser. Since v3.0.0 this
+> The decision is made in Home Assistant, not in the browser. Since v2.0.13 this
 > integration ships no code that hides anything on a page: there is nothing on
 > the page to hide. That is not a substitute for Home Assistant's own
 > authentication — see the note below on what disabling the integration does.

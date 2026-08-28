@@ -428,7 +428,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
     # The one asset this integration puts on a page it does not own. It
     # translates the sidebar titles of the two panels above and decides nothing
     # about access — the Panel Gate did that before the panel map left Home
-    # Assistant (ADR-0011). Until v3.0.0 two Filters were injected here too.
+    # Assistant (ADR-0011). Until v2.0.13 two Filters were injected here too.
     #
     # Busted by PANEL_VERSION like every other asset, rather than by a restart
     # timestamp: one bump has to move the whole graph, or the version query

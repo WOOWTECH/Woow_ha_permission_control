@@ -362,7 +362,7 @@ def test_only_init_writes_the_permission_store():
 
 
 def test_no_frontend_module_subscribes_to_the_announcement():
-    """The payload is diagnostic, and since v3.0.0 nothing here even hears it.
+    """The payload is diagnostic, and since v2.0.13 nothing here even hears it.
 
     ADR-0010 is about consumers re-fetching rather than reading `event.data`.
     The two that did were the Filters, and deleting them (#20) left the

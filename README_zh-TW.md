@@ -132,7 +132,7 @@ data:
 - 權限儲存為 `.storage` JSON 檔，不會經由 HTTP 對外暴露
 - **Panel Gate** 包住 Home Assistant 自己的 `get_panels`，使用者無 View 權限的面板根本不會送到瀏覽器
 
-> 決定發生在 Home Assistant，不在瀏覽器。自 v3.0.0 起，本整合不再送出任何「把頁面上的東西藏起來」
+> 決定發生在 Home Assistant，不在瀏覽器。自 v2.0.13 起，本整合不再送出任何「把頁面上的東西藏起來」
 > 的程式碼——因為頁面上根本沒有那個東西可藏。這仍然**不能取代** Home Assistant 本身的身分驗證，
 > 原因見下方「停用本整合」那段。
 

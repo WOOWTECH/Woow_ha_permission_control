@@ -1,6 +1,6 @@
 # One write path, one announcement, and the payload means nothing
 
-> **Update, v3.0.0.** The decision holds; one sentence below does not. "What
+> **Update, v2.0.13.** The decision holds; one sentence below does not. "What
 > does listen on an administrator's page is the two Filters" was true when this
 > was written and stopped being true when #20 deleted them. Nothing this repo
 > ships subscribes to the announcement now. What reaches a live page is

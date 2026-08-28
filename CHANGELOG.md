@@ -1,6 +1,11 @@
 # Changelog
 
-## v3.0.0 — 2026-08-28
+## v2.0.13 — 2026-08-28
+
+Issue #20 calls this the v3.0.0 change, and under semantic versioning it is one:
+the "Changed — on purpose, and visible to users" section below is a breaking
+change. It ships as 2.0.13 by decision, to keep this release one step from
+2.0.12 rather than a major jump. Read the section before upgrading.
 
 ### Removed
 
@@ -64,7 +69,7 @@ class #16 named and the Panel Gate ends.
 
 - ADR-0010 and ADR-0011 are live, and each carried one sentence this release
   falsified: that the two Filters are what listens on an administrator's page,
-  and that the Filters still ship. Both get a dated **Update, v3.0.0** note at
+  and that the Filters still ship. Both get a dated **Update, v2.0.13** note at
   the top rather than an edited body, because an ADR is a record of what was
   believed when it was written. ADR-0011's note records the wrinkle in its own
   prediction: #18 and #20 did *not* ship together, and v2.0.11–v2.0.12 ran a
@@ -114,7 +119,7 @@ class #16 named and the Panel Gate ends.
 - `tests/verify_issue_17.py` survives, reading each identity's sidebar straight
   off `panel_ids` instead of shelling out to the shipped `filterPanels()`.
   Nothing is computed there on purpose: what the browser receives is what it
-  draws. A `--compare` across the v3.0.0 boundary therefore holds a computed
+  draws. A `--compare` across the v2.0.13 boundary therefore holds a computed
   sidebar against a delivered one, which is exactly the claim this release
   makes — they are the same set.
 

@@ -4,7 +4,7 @@
 > The routing anchor existed because filtering left a route with no panel
 > behind it. The Panel Gate removes the panel outright and Home Assistant's
 > own router falls back to `notfound`, so there is nothing to anchor. Deleted
-> in v3.0.0 (#20), along with the anchor awareness `sidebar-title.js` carried
+> in v2.0.13 (#20), along with the anchor awareness `sidebar-title.js` carried
 > for it.
 
 Issue #6, against the routing anchor v2.0.1 added in `822b6ed`. `filterPanels()`

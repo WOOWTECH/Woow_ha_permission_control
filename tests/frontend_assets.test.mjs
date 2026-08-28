@@ -239,7 +239,7 @@ const injectedAssets = () => {
 /**
  * The whole of what this integration injects into a page it does not own.
  *
- * Until v3.0.0 that was two Filters as well: ~2,400 lines deciding in the
+ * Until v2.0.13 that was two Filters as well: ~2,400 lines deciding in the
  * browser what the Panel Gate now decides before the panel map leaves Home
  * Assistant. The decision has one owner (ADR-0011), so a second registration
  * here is either a new Filter or an old one coming back — and either way it is
@@ -264,6 +264,6 @@ test("the only asset injected into every page is the sidebar title translator", 
     injected.map(({ url }) => url.replace("{FRONTEND_URL_BASE}/", "").split("?")[0]),
     ["sidebar-title.js"],
     "an asset injected on every page decides something in the browser, and " +
-      "since v3.0.0 nothing about access is decided there",
+      "since v2.0.13 nothing about access is decided there",
   );
 });

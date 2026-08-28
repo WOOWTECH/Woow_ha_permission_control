@@ -2,7 +2,7 @@
 
 > **Still live**, with a narrower scope after
 > [ADR-0011](0011-the-panel-decision-moves-into-the-backend.md). The Filters
-> this rule was written for were deleted in v3.0.0 (#20), but the two panels
+> this rule was written for were deleted in v2.0.13 (#20), but the two panels
 > still import `lit.js` and `tests/frontend_assets.test.mjs` still holds the
 > rule.
 > Read it as being about those files.

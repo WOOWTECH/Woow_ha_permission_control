@@ -761,7 +761,7 @@ curl -s -X POST "${API}/reset_all_permissions" \
 
 All write operations fire a `permission_manager_updated` event on the HA event
 bus. Nothing this integration ships listens for it — the Permission Manager
-panel updates its own state as it writes, and since v3.0.0 there is no frontend
+panel updates its own state as it writes, and since v2.0.13 there is no frontend
 Filter to re-apply. It is there for your automations, and for whoever is reading
 a trace.
 

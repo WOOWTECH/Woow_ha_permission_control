@@ -7,7 +7,7 @@ the sidebar Filter's `anchorPanel()` was written the other way round. Both
 cannot be right, and the answer decided how much of Mechanism A a user could
 ever have seen.
 
-That Filter is gone as of v3.0.0: a denied panel is not in `hass.panels` to be
+That Filter is gone as of v2.0.13: a denied panel is not in `hass.panels` to be
 hidden by any field. This probe survives it because what it measures is Home
 Assistant's own behaviour, and the next thing to reach for a panel field will
 want the same answer.

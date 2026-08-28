@@ -1,6 +1,6 @@
 # The panel decision moves into the backend, behind one wrapped handler
 
-> **Update, v3.0.0.** All four sub-issues have landed. #20 deleted the Filters,
+> **Update, v2.0.13.** All four sub-issues have landed. #20 deleted the Filters,
 > so the two places below that say they still ship — "What this supersedes" and
 > "What this does not answer" — describe the release this document landed with
 > (v2.0.11) and not the code as it stands. The supersession list has been
@@ -263,7 +263,7 @@ frontend is a reimplementation in Python.
 ## What this supersedes
 
 ADR-0005, ADR-0007, ADR-0008 and ADR-0009 are all about the internals of
-Filters that #20 deleted in v3.0.0 — the last of them about the loading overlay
+Filters that #20 deleted in v2.0.13 — the last of them about the loading overlay
 `ha_sidebar_filter.js` raised. All four are marked superseded by this one and
 left in place, as the record of how those layers worked and why each existed.
 

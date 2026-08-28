@@ -1,7 +1,7 @@
 # A Filter releases what it registered before it runs again
 
 > **Superseded by [ADR-0011](0011-the-panel-decision-moves-into-the-backend.md).**
-> The Filters this rule is about were deleted in v3.0.0 (#20). The baseline
+> The Filters this rule is about were deleted in v2.0.13 (#20). The baseline
 > contamination it warns of is also why the Gate and the Filters could not
 > coexist for long: a Filter would read a backend-filtered map as its
 > unfiltered baseline. One release shipped with both, and #20 ended it.
