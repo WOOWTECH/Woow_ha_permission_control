@@ -16,14 +16,28 @@ to ask again. Two claims, and neither can be checked offline:
      Debouncer, because reimplementing a timer to check a timer only proves the
      reimplementation right.
 
-Three paths are measured, because they fail differently:
+Four of the five write paths are measured, because they fail differently:
 
-  - a grant and a revoke through `permission_manager/set_permission`;
+  - `set_permission`, as a grant and as a revoke;
   - a burst of single writes, which is the case the debounce is actually for;
-  - an **area deletion**, which reaches the store through the registry listener
-     with no service handler in front of it. #19's own comment calls this the
-     path most worth having the event on, because nobody is watching a page at
-     that moment. The area is created by this script and deleted again.
+  - `bulk_set_permissions`, called with the row set to the value it already
+     holds — a real trip through a second write path that changes nothing, so
+     it also measures ADR-0010's rule that a write which changed nothing still
+     announces;
+  - `remove_resource_permissions`, reached the way it is actually reached in
+     anger: an **area deletion**, through the registry listener with no service
+     handler in front of it. #19's own comment calls this the path most worth
+     having the event on, because nobody is watching a page at that moment. The
+     area is created by this script and deleted again.
+
+`remove_user_permissions` and `reset_all_permissions` are **not** run here, and
+the omission is deliberate rather than forgotten. Both erase rows, and putting
+them back means rewriting the store — which would change its bytes and cost the
+"the store was never written" fingerprint every run of this suite has kept.
+What covers them instead: `tests/verify_issue_14.py` already measures all five
+paths reaching `_async_write` on this instance, and both events are made from
+that one function, one line apart, with `tests/test_permission_store.py`
+holding it that way. A path that makes the Announcement makes the broadcast.
 
 Usage:
   python3 tests/verify_issue_19.py --label v2.0.12
@@ -194,6 +208,27 @@ async def measure(label: str, burst: int) -> dict:
         await asyncio.sleep(SETTLE)
         capture["area_deletion"] = listener.seen()
 
+        # 5. bulk_set_permissions, a second write path. The row is set to the
+        #    value it already holds, so this changes nothing and still has to
+        #    announce — ADR-0010's rule — and the store is left untouched.
+        listener.reset()
+        await admin.call({
+            "type": "call_service",
+            "domain": "ha_permission_manager",
+            "service": "bulk_set_permissions",
+            "service_data": {
+                "permissions": [
+                    {
+                        "user_id": user_id,
+                        "resource_id": RESOURCE,
+                        "level": restore_level,
+                    }
+                ]
+            },
+        })
+        await asyncio.sleep(SETTLE)
+        capture["bulk_set_unchanged"] = listener.seen()
+
         areas = await admin.call({"type": "config/area_registry/list"})
         capture["area_gone"] = area_id not in {a["area_id"] for a in areas}
 
@@ -230,6 +265,7 @@ def report(capture: dict) -> int:
         ("one revoke", "revoke", 1),
         (f"a burst of {burst} writes", "burst", burst),
         ("an area deletion", "area_deletion", 1),
+        ("a bulk_set changing nothing", "bulk_set_unchanged", 1),
     ]
     for name, key, writes in rows:
         times = capture[key]
