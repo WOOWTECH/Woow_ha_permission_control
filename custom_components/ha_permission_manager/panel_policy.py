@@ -75,6 +75,13 @@ ALWAYS_VISIBLE_PANELS = frozenset({"profile"})
 # appears in a sidebar and keeping it costs nothing visible.
 ROUTER_FALLBACK_PANELS = frozenset({"notfound"})
 
+# The two above, together: the panels that need no Permission level. Named
+# because it is also the whole of what a non-administrator receives when the
+# Panel Gate is running and cannot answer — the degraded set is exactly "every
+# panel that needs no Permission, and nothing that does", rather than a second
+# list that could come to disagree with this one.
+PANELS_WITHOUT_PERMISSION = ALWAYS_VISIBLE_PANELS | ROUTER_FALLBACK_PANELS
+
 
 def admin_panel_resources(panels: Mapping[str, Any]) -> list[dict[str, str]]:
     """The panel Resources the permission matrix offers an administrator.
@@ -142,7 +149,7 @@ def visible_panel_ids(
         # row itself is left alone: it comes back to life if the panel does.
         if panel_id in unroutable:
             continue
-        if panel_id in ALWAYS_VISIBLE_PANELS or panel_id in ROUTER_FALLBACK_PANELS:
+        if panel_id in PANELS_WITHOUT_PERMISSION:
             visible.add(panel_id)
             continue
         # Fail-secure: only an explicit level above Closed grants. Absent,

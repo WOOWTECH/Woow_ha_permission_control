@@ -1,5 +1,11 @@
 # A frontend asset carries its cache buster onto what it pulls in
 
+> **Still live**, with a narrower scope after
+> [ADR-0011](0011-the-panel-decision-moves-into-the-backend.md). The Filters
+> this rule was written for are deleted by #20, but the two panels still
+> import `lit.js` and `tests/frontend_assets.test.mjs` still holds the rule.
+> Read it as being about those files.
+
 Issue #9: every asset the integration *registers* carried `?v={PANEL_VERSION}`;
 every asset an asset *imports* carried nothing. Six specifiers, across five
 files, reached `permission_policy.js`, `shadow_dom.js` and `lit.js` with no

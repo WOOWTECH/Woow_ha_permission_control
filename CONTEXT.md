@@ -72,8 +72,18 @@ _Avoid_: Access Denied overlay, loading screen, splash, spinner
 The backend layer that decides which panels leave Home Assistant. It wraps Home
 Assistant's own `get_panels`, drops the panels a non-administrator has no View
 permission for, and never touches an administrator's answer. Single owner: the
-panel list a browser receives is the whole of what that user may see.
+panel list a browser receives is the whole of what that user may see. Installed
+in `async_setup`, handed back on unload — so disabling this integration lifts
+every restriction, deliberately (ADR-0011).
 _Avoid_: backend filter, panel filter, sidebar filter, interceptor
+
+**Degraded set**:
+What the Panel Gate sends a non-administrator when it is running and cannot
+answer: `notfound` and `profile`, built from the panel registry, and nothing
+else. A refusal in the shape of an answer. Every way of reaching it except one
+— the Permission store not being loaded yet, which happens once per start and
+corrects itself — is an error in the log and a persistent notification.
+_Avoid_: fallback, empty panels, safe mode, minimal set
 
 **Baseline**:
 The unfiltered panel map a Filter applies filtering to: what Home Assistant

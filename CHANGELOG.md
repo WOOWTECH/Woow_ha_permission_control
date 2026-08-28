@@ -1,5 +1,119 @@
 # Changelog
 
+## v2.0.11 — 2026-08-28
+
+### Added
+
+- **The Panel Gate: a panel a user may not see never reaches their browser.**
+  Every panel decision this integration made happened in the browser, after
+  Home Assistant had already handed the user the full panel map. That is why a
+  Filter that does not run is a non-admin with 28 panels and a page that looks
+  entirely normal (#12), and it is the shared root of #6, #7, #8 and #11.
+
+  `panel_gate.py` takes over `get_panels` — the one place a panel map leaves
+  Home Assistant — swaps `connection.send_message` for the duration of one
+  call, lets Home Assistant compute its own answer, and deletes from the result
+  the panels the asking user has no View permission for. A denied panel is
+  **absent**, not hidden: no route survives for a bookmark or a `navigate()` to
+  reach. Nothing here copies Home Assistant's own filtering, so a change to
+  `to_response()` cannot silently make us wrong, and nothing here decides which
+  panels a user may see — that is `panel_policy.visible_panel_ids()`, the same
+  function `get_panel_permissions` reports from, so the decision and the report
+  cannot drift.
+
+  **An administrator is never filtered.** Not one key, and their connection is
+  not watched at all. That is what keeps the Permission Manager panel reachable
+  when everything else here has failed.
+
+  The Gate installs in `async_setup`, before the store is read and before any
+  panel is registered, and fires `panels_updated` once installed so a browser
+  that reconnected during startup asks again — the window `85d4977` caught in
+  the act. It installs again from `async_setup_entry`, because a disable/enable
+  cycle never comes back through `async_setup`.
+
+  ADR-0011 is the decision record, including the section on why
+  `panels_updated` and `permission_manager_updated` are not redundant: Home
+  Assistant refuses a non-administrator's subscription to the second one (#13),
+  so the first is the only channel that reaches the user a revocation is about.
+
+- **When the Gate is running and cannot answer, it closes.** A
+  non-administrator then receives `notfound` and `profile` and nothing else,
+  built from the panel registry rather than from a literal. Five ways in: the
+  response is not a result we recognise, Home Assistant's handler sent nothing,
+  it raised, deciding raised — each an error in the log and a persistent
+  notification — and the Permission store not being loaded yet, which is
+  expected once per start, warns rather than notifies, and closes itself when
+  the store arrives.
+
+- **Not being in control is an error and a notification, not a debug line.** If
+  there is no `get_panels` handler, or the registered one does not belong to
+  `homeassistant.components.frontend` because somebody else got there first,
+  the Gate declines to install and says so. An instance with no Gate looks
+  entirely normal to everybody except the user who is supposed to be
+  restricted.
+
+- **`notfound` is checked at install time**, which closes #7's "nothing
+  checks". `ROUTER_FALLBACK_PANELS` keeps it without a Permission because Home
+  Assistant's default-panel lookup falls through to it; the frontend could only
+  assume the panel exists and the backend can look. A missing one is reported
+  and does **not** stop the Gate installing — refusing would lift every
+  restriction on the instance to protect one router fallback.
+
+  The check is asked at install time and, if the panel registry was not
+  populated yet, again once the Permission store loads. Installing is
+  idempotent, so without the second ask a cold start where the Gate goes in
+  first would leave #7 closed by a line that never ran.
+
+### Changed
+
+- **Unloading the integration hands `get_panels` back**, and fires
+  `panels_updated` so every browser gets Home Assistant's own answer
+  immediately. So **disabling this integration lifts every restriction**, with
+  no restart. That is deliberate, it is how an administrator recovers an
+  instance they have locked themselves out of, and it is now in the README
+  rather than only in the code. A reload is unload plus setup, so there is a
+  millisecond window with the Gate off; accepted, and recorded in ADR-0011.
+
+- **`panels_updated` is spelt once**, in `panel_gate.py`, which owns it;
+  `__init__.py` imports it. `tests/test_permission_store.py` now names every
+  `async_fire` in the integration rather than counting them, so a module that
+  starts firing something shows up whatever it fires.
+
+- **ADR-0005, ADR-0007 and ADR-0008 are marked superseded by ADR-0011.** All
+  three are about the internals of Filters that #20 deletes. They stay in
+  place: until #20 lands the Filters still ship and those documents still
+  describe them. **ADR-0006 stays live**, with its scope narrowed to the two
+  panels that still import `lit.js`.
+
+- `persistent_notification` joins the manifest dependencies. The Gate reports
+  through it.
+
+### Tests
+
+- `tests/test_panel_gate.py`, offline and in CI: 31 cases over installing,
+  filtering, closing and handing back, with Home Assistant stubbed rather than
+  installed. Six of them are source-text invariants over `__init__.py`, because
+  *where* the Gate is installed from is the whole of its startup guarantee and
+  none of that can be run offline.
+
+- `tests/verify_issue_16.py` is the live instrument: an administrator's and a
+  non-administrator's `get_panels`, then a grant and a revoke observed on one
+  non-admin connection that stays open, then a disable/enable cycle. It writes,
+  so it reads the Permission level and the config entry state first and puts
+  both back, and reports whether the restore succeeded. The `panels_updated`
+  half of the grant and the revoke belongs to #19 and is measured but not
+  counted until `--expect-push`.
+
+### Not in this release
+
+- The frontend Filters are still shipped and still running. Deleting them is
+  #20, and it ships alongside this — a version with both layers would let a
+  Filter read a backend-filtered map as its unfiltered baseline, which is
+  ADR-0007's contamination from a source the `FILTERED` mark cannot see.
+
+- `panels_updated` is not yet fired when a Permission is written, so a grant or
+  a revoke still reaches a live page only when it asks again. That is #19.
+
 ## v2.0.10 — 2026-08-27
 
 ### Changed

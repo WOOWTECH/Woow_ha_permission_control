@@ -130,9 +130,16 @@ data:
 - 等級只接受 `0` 與 `1`
 - 全程沒有原生 SQL，資料存取一律經由 Home Assistant
 - 權限儲存為 `.storage` JSON 檔，不會經由 HTTP 對外暴露
+- **Panel Gate** 包住 Home Assistant 自己的 `get_panels`，使用者無 View 權限的面板根本不會送到瀏覽器
 - 三個前端 Filter（側邊欄、Lovelace、拒絕存取）負責隱藏使用者無 View 權限的項目
 
 > Filter 屬於 UI 層防護。它能阻止使用者導覽到無權限的資源，但**不能取代** Home Assistant 本身的身分驗證。
+
+> **停用本整合會解除所有限制。** 整合卸載時 Panel Gate 會把 `get_panels` 交還給 Home
+> Assistant，所有使用者立刻看得到所有面板，不需要重啟。這是刻意的：管理員把自己鎖在
+> 外面時就是這樣救回來的，也是為什麼這套權限模型是「安排使用者看到什麼」而不是資安邊界
+> ——能停用整合的人就能推翻全部設定。詳見
+> [ADR-0011](docs/adr/0011-the-panel-decision-moves-into-the-backend.md)。
 
 ## 畫面截圖
 
@@ -153,6 +160,8 @@ custom_components/ha_permission_manager/
 ├── const.py             domain、前綴、面板與服務名稱
 ├── config_flow.py       單一實例 config flow
 ├── discovery.py         探索面板、區域與標籤
+├── panel_gate.py        包住 Home Assistant get_panels 的 Panel Gate
+├── panel_policy.py      使用者可以收到哪些面板——唯一的答案
 ├── services.py          14 個服務
 ├── websocket_api.py     8 個 WebSocket 指令
 ├── users.py             使用者查詢
