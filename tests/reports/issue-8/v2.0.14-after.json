@@ -1,9 +1,9 @@
 {
-  "dashboard_id": "verify_issue_8_1787912780",
+  "dashboard_id": "verify_issue_8_1787914627",
   "dashboard_removed": true,
   "delete_events": [
     {
-      "url_path": "verify-issue-8-1787912780"
+      "url_path": "verify-issue-8-1787914627"
     }
   ],
   "deployed_version": "2.0.14",
@@ -14,12 +14,12 @@
   "level_before_delete": 1,
   "panel_gone": true,
   "panel_registered": true,
-  "resource_id": "panel_verify-issue-8-1787912780",
+  "resource_id": "panel_verify-issue-8-1787914627",
   "save_events": [
     {
-      "url_path": "verify-issue-8-1787912780"
+      "url_path": "verify-issue-8-1787914627"
     }
   ],
-  "url_path": "verify-issue-8-1787912780",
+  "url_path": "verify-issue-8-1787914627",
   "user_id": "9eafc87fb1d44f8fb0677e428fcea9aa"
 }

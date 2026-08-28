@@ -32,7 +32,18 @@ store for good — not the narrow case the ticket describes, but every deletion.
   registry (a save), and an unreadable registry. The last is the one worth
   naming: `panels` is read off `hass.data`, where empty means "could not read
   it" rather than "Home Assistant has no panels", and reading a deletion out of
-  that would erase every dashboard's Permissions on an ordinary save.
+  that would erase every dashboard's Permissions on an ordinary save. It is
+  logged as a warning rather than passed over, because it should not happen.
+
+  A fourth case is the listener's own: **nothing is deleted unless Home
+  Assistant is running.** `lovelace` is deliberately not a dependency of this
+  integration — the Panel Gate has to be installed before anything can ask for
+  a panel list (ADR-0011) — so during startup the registry holds Home
+  Assistant's built-in panels and not yet every dashboard. Non-empty, and
+  incomplete: a dashboard whose panel has not been registered yet would read
+  as one that had been deleted, and a user would silently lose access to a
+  dashboard that is still there. Deletions are something a person does to a
+  running instance, so that is the only state this acts in.
 
   A stale row is milder than a resurrected sidebar entry — the Panel Gate
   decides from the store, so a row for a panel that does not exist grants

@@ -13,7 +13,7 @@ from homeassistant.components.frontend import (
 )
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, Event, callback
+from homeassistant.core import CoreState, HomeAssistant, Event, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
@@ -302,14 +302,43 @@ async def _async_setup_listeners(hass: HomeAssistant) -> None:
         key that Home Assistant has never sent, so the deletion branch was
         never taken and every deleted dashboard kept its rows (issue #8).
         deleted_dashboard_resource_id holds what is read instead, and why.
+
+        Two things belong here rather than in that decision, because both are
+        about this Home Assistant rather than about dashboards: nothing is
+        deleted unless the instance is running, and a registry that cannot be
+        read is reported rather than passed over in silence.
         """
         try:
             url_path = event.data.get("url_path")
             _LOGGER.debug("Lovelace updated: url_path=%s", url_path)
 
-            resource_id = deleted_dashboard_resource_id(
-                url_path, get_registered_panels(hass)
-            )
+            # A dashboard is deleted by someone using a running instance. The
+            # registry is still filling during startup — `lovelace` is not a
+            # dependency of this integration, deliberately, so that the Panel
+            # Gate is installed before anything can ask for a panel list — and
+            # a dashboard whose panel has not been registered yet is
+            # indistinguishable from one that has been deleted.
+            if hass.state is not CoreState.running:
+                _LOGGER.debug(
+                    "Lovelace updated for %s while Home Assistant is %s, not "
+                    "while it is running: leaving its Permissions alone",
+                    url_path, hass.state,
+                )
+                return
+
+            panels = get_registered_panels(hass)
+            # Reported rather than skipped in silence: with no registry to read,
+            # every save looks like a deletion, and this is the one shape that
+            # would cost a live dashboard its Permissions. The refusal itself
+            # belongs to deleted_dashboard_resource_id, which makes it again.
+            if url_path and not panels:
+                _LOGGER.warning(
+                    "lovelace_updated for %s arrived with no readable panel "
+                    "registry; leaving its Permissions alone",
+                    url_path,
+                )
+
+            resource_id = deleted_dashboard_resource_id(url_path, panels)
             if resource_id is None:
                 return
 
