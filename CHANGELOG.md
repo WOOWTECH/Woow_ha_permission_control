@@ -1,5 +1,62 @@
 # Changelog
 
+## v2.0.14 — 2026-08-28
+
+Issue #8. A dashboard could be deleted and its Permission rows stayed in the
+store for good — not the narrow case the ticket describes, but every deletion.
+
+### Fixed
+
+- **A deleted dashboard now loses its Permissions.** The listener on
+  `lovelace_updated` read `event.data["action"]` and cleaned up when it said
+  `"delete"`. Home Assistant has never sent that key. The event carries
+  `{"url_path": ...}` and nothing else — the same payload on a save as on a
+  delete, on 2025.7.0, on 2026.7.2 and on dev — so the branch was dead and
+  every deleted dashboard kept its rows.
+
+  #8 was filed about the guard in front of that branch (`if not url_path:
+  return`, which also swallows a delete), and asked as its open question which
+  real deletions arrive without a `url_path`. They do not: a storage dashboard
+  is deleted with its url_path in the payload. The guard was never what stopped
+  the cleanup. The missing `action` was.
+
+  What separates a delete from a save is the panel registry. Home Assistant's
+  `storage_dashboard_changed` calls `frontend.async_remove_panel` before the
+  config it then deletes fires the event, so a url_path with no panel behind it
+  is a dashboard that is gone. `panel_policy.deleted_dashboard_resource_id()`
+  is that decision, next to the other pure panel decisions and unit tested
+  offline; the listener is the adapter around it.
+
+  Three cases keep every row rather than guess: no `url_path` (the default
+  dashboard's own config — its panel never leaves), a url_path still in the
+  registry (a save), and an unreadable registry. The last is the one worth
+  naming: `panels` is read off `hass.data`, where empty means "could not read
+  it" rather than "Home Assistant has no panels", and reading a deletion out of
+  that would erase every dashboard's Permissions on an ordinary save.
+
+  A stale row is milder than a resurrected sidebar entry — the Panel Gate
+  decides from the store, so a row for a panel that does not exist grants
+  nothing. It matters when a later dashboard is created at the same
+  `url_path`: the old row comes back to life and grants the new dashboard to
+  whoever held the old one.
+
+### Verified
+
+Measured on 192.168.2.6, HA 2026.7.2, by `tests/verify_issue_8.py`, which
+creates a dashboard, saves a config onto it, grants a level on it, deletes it
+and asks the store:
+
+|                                   | v2.0.13 | v2.0.14 |
+|-----------------------------------|---------|---------|
+| payload on a save                 | `{url_path}` | `{url_path}` |
+| payload on a delete               | `{url_path}` | `{url_path}` |
+| a delete carries `action`         | no      | no      |
+| panel gone when the event is read | yes     | yes     |
+| level on the deleted dashboard    | 1       | 0       |
+
+The first live reproduction of #8, which the ticket says it never had — and the
+same run is the evidence for the signal the fix reads instead.
+
 ## v2.0.13 — 2026-08-28
 
 Issue #20 calls this the v3.0.0 change. The deploy verification below says it
