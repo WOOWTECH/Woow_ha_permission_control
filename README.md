@@ -152,12 +152,23 @@ connection can read its own permissions and nothing else.
 - Only levels `0` and `1` are accepted
 - No raw SQL anywhere; all data access goes through Home Assistant
 - The permission store is a `.storage` JSON file, never exposed over HTTP
+- The **Panel Gate** wraps Home Assistant's own `get_panels`, so a panel a user
+  has no View permission for never reaches their browser at all
 - Three frontend Filters (sidebar, Lovelace, access-denied) hide what a user has
   no View permission for
 
 > Filters are a UI-layer defence. They stop a user navigating to resources they
 > have no permission for; they are not a substitute for Home Assistant's own
 > authentication.
+
+> **Disabling this integration lifts every restriction.** The Panel Gate hands
+> `get_panels` back to Home Assistant when the integration unloads, and every
+> user sees every panel again immediately — no restart needed. That is
+> deliberate: it is how an administrator recovers an instance they have locked
+> themselves out of, and it is the reason the permission model is a way to
+> shape what users see rather than a security boundary. Anyone who can disable
+> the integration can undo all of it. See
+> [ADR-0011](docs/adr/0011-the-panel-decision-moves-into-the-backend.md).
 
 ## Screenshots
 
@@ -178,6 +189,8 @@ custom_components/ha_permission_manager/
 ├── const.py             domain, prefixes, panel and service names
 ├── config_flow.py       single-instance config flow
 ├── discovery.py         finds panels, areas and labels
+├── panel_gate.py        the Panel Gate over Home Assistant's get_panels
+├── panel_policy.py      which panels a user may receive — the one answer
 ├── services.py          the 14 services
 ├── websocket_api.py     the 8 WebSocket commands
 ├── users.py             user lookup

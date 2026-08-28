@@ -1,5 +1,11 @@
 # A Filter releases what it registered before it runs again
 
+> **Superseded by [ADR-0011](0011-the-panel-decision-moves-into-the-backend.md).**
+> The Filters this rule is about are deleted by #20. The baseline
+> contamination it warns of is also why the Gate and the Filters must not
+> coexist in a release: a Filter would read a backend-filtered map as its
+> unfiltered baseline. Live until #20 lands.
+
 Issue #5: Home Assistant replaces its `home-assistant` element on logout/login,
 the sidebar filter watches for that and re-initialises, and re-initialising
 registered everything a second time without removing what the previous run had

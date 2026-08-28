@@ -289,14 +289,31 @@ def test_the_event_is_fired_from_exactly_one_place():
 
     Three handlers used to fire it for themselves and two forgot to. One firing
     site is what stops that recurring.
+
+    Every `async_fire` in the integration is named rather than counted, so a
+    module that starts firing something shows up here whatever it fires. There
+    are two events and they are not interchangeable: this one says "the
+    Permission store has been written to, re-read it" and only an administrator
+    is allowed to receive it (#13), while `panels_updated` says "ask for your
+    panels again" and reaches everybody. ADR-0011 has the distinction.
     """
     fired_in = {
-        name: len(re.findall(r"async_fire\(\s*EVENT_PERMISSION_MANAGER_UPDATED", source))
+        name: sorted(set(re.findall(r"async_fire\(\s*([A-Za-z_][A-Za-z0-9_]*)", source)))
         for name, source in python_sources().items()
         if "async_fire(" in source
     }
 
-    assert fired_in == {"__init__.py": 1}
+    assert fired_in == {
+        "__init__.py": ["EVENT_PERMISSION_MANAGER_UPDATED"],
+        "panel_gate.py": ["EVENT_PANELS_UPDATED"],
+    }
+
+    # Named above, counted here: one site, not one spelling of several sites.
+    announcements = re.findall(
+        r"async_fire\(\s*EVENT_PERMISSION_MANAGER_UPDATED",
+        python_sources()["__init__.py"],
+    )
+    assert len(announcements) == 1
 
 
 def test_only_init_writes_the_permission_store():

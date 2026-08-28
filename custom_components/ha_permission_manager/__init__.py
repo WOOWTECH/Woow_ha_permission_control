@@ -16,6 +16,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, Event, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     DOMAIN,
@@ -38,6 +39,12 @@ from .const import (
     CONTROL_PANEL_ICON,
 )
 from . import permission_store
+from .panel_gate import (
+    EVENT_PANELS_UPDATED,
+    async_install_panel_gate,
+    async_panel_gate_store_loaded,
+    async_restore_panel_gate,
+)
 from .permission_store import EVENT_PERMISSION_MANAGER_UPDATED
 from .services import async_register_services, async_unregister_services
 from .websocket_api import async_register_websocket_api
@@ -125,7 +132,25 @@ EVENT_USER_ADDED = "user_added"
 EVENT_USER_REMOVED = "user_removed"
 EVENT_USER_UPDATED = "user_updated"
 EVENT_LOVELACE_UPDATED = "lovelace_updated"
-EVENT_PANELS_UPDATED = "panels_updated"
+# EVENT_PANELS_UPDATED is imported from panel_gate, which owns it and is the
+# only place in this integration that fires it. The listener below is the one
+# other use of the name here, and it has done nothing since it was written.
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Install the Panel Gate, before anything can ask for a panel list.
+
+    This runs before any config entry is set up, which is the whole reason it
+    exists: the Gate has to be answering `get_panels` before the store is read,
+    before the services are registered and before our own panels are. A browser
+    that reconnects through any of that reads whatever is answering at the time
+    and has no reason to ask again — `85d4977` caught exactly that.
+
+    It runs once per Home Assistant lifetime, so `async_setup_entry` installs
+    too: a disable/enable cycle never comes back through here.
+    """
+    async_install_panel_gate(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -136,6 +161,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["entry"] = entry
     hass.data[DOMAIN]["unsubscribe"] = []
+
+    # Re-enabling the integration comes back through here and not through
+    # async_setup, so the Gate is installed again — and ahead of the store
+    # read, so the window in which a non-administrator is refused is the same
+    # window either way, rather than one in which they are served.
+    async_install_panel_gate(hass)
 
     # Initialize Store for persistent permission storage
     store = Store[dict[str, Any]](hass, STORAGE_VERSION, STORAGE_KEY)
@@ -152,6 +183,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     else:
         hass.data[DOMAIN]["permissions"] = {}
         _LOGGER.debug("No existing permissions found, starting fresh")
+
+    # The Gate can answer from now on. Until this line it refuses every
+    # non-administrator, so whoever asked inside that window is holding the
+    # degraded set and has to be told to ask again.
+    async_panel_gate_store_loaded(hass)
 
     # Cleanup obsolete script/automation permission entities (v1.0.0 migration)
     await _async_cleanup_obsolete_permissions(hass)
@@ -183,6 +219,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Unregister services
     async_unregister_services(hass)
+
+    # Hand `get_panels` back to Home Assistant. Ahead of the pop below, which
+    # throws away the record of what to put back. Every restriction lifts here:
+    # disabling this integration is how an administrator recovers an instance
+    # they have locked themselves out of.
+    async_restore_panel_gate(hass)
 
     # Remove panels
     async_remove_panel(hass, PANEL_URL)

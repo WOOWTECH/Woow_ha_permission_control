@@ -1,5 +1,11 @@
 # Two Filters cover a denied panel, and there is one way of finding the DOM
 
+> **Superseded by [ADR-0011](0011-the-panel-decision-moves-into-the-backend.md).**
+> Both Filters, and the Access Denied page they put up, are deleted by #20:
+> the Panel Gate makes a denied panel absent, so there is nothing left to
+> cover and no DOM to find it in. Live until that lands — the Filters still
+> ship, and this is still how they work.
+
 Issue #10 asked whether the lovelace filter should exist at all, now that the
 sidebar filter's Access Denied Filter covers a denied panel: "Two layers that
 disagree about how to find the DOM are worse than one that works."

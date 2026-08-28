@@ -28,5 +28,10 @@ jobs:
       - name: Install pytest
         run: python -m pip install --disable-pip-version-check pytest
 
-      - name: Panel policy and Permission store tests
-        run: python -m pytest tests/test_panel_policy.py tests/test_permission_store.py -q
+      - name: Panel policy, Panel Gate and Permission store tests
+        run: >-
+          python -m pytest
+          tests/test_panel_policy.py
+          tests/test_panel_gate.py
+          tests/test_permission_store.py
+          -q
