@@ -1,0 +1,296 @@
+{
+  "admin": {
+    "blackout": {
+      "accessDenied": false,
+      "assetsServed": [],
+      "deniedRenders": true,
+      "deniedUrl": "/climate",
+      "panelCount": 37,
+      "panels": [
+        "5c53de3b_esphome",
+        "77b2833f_pgadmin4",
+        "_my_redirect",
+        "a0d7b954_ssh",
+        "app",
+        "climate",
+        "config",
+        "core_configurator",
+        "core_matter_server",
+        "dashboard-simon",
+        "energy",
+        "erv-v2",
+        "ha-asset-record",
+        "ha-control-panel",
+        "ha-finance",
+        "ha-health-record",
+        "ha-mcp",
+        "ha-note-record",
+        "ha_permission_manager",
+        "hacs",
+        "history",
+        "home",
+        "light",
+        "logbook",
+        "lovelace",
+        "maintenance",
+        "map",
+        "media-browser",
+        "notfound",
+        "profile",
+        "security",
+        "todo",
+        "woow-blueprints",
+        "woow_dmx",
+        "woow_knx",
+        "woow_modbus",
+        "woow_multi_protocol"
+      ]
+    },
+    "missing": {
+      "accessDenied": false,
+      "assetsServed": [
+        [
+          "sidebar-title.js?v=2.0.13",
+          404
+        ],
+        [
+          "sidebar-title.js?v=2.0.13",
+          404
+        ]
+      ],
+      "deniedRenders": true,
+      "deniedUrl": "/climate",
+      "panelCount": 37,
+      "panels": [
+        "5c53de3b_esphome",
+        "77b2833f_pgadmin4",
+        "_my_redirect",
+        "a0d7b954_ssh",
+        "app",
+        "climate",
+        "config",
+        "core_configurator",
+        "core_matter_server",
+        "dashboard-simon",
+        "energy",
+        "erv-v2",
+        "ha-asset-record",
+        "ha-control-panel",
+        "ha-finance",
+        "ha-health-record",
+        "ha-mcp",
+        "ha-note-record",
+        "ha_permission_manager",
+        "hacs",
+        "history",
+        "home",
+        "light",
+        "logbook",
+        "lovelace",
+        "maintenance",
+        "map",
+        "media-browser",
+        "notfound",
+        "profile",
+        "security",
+        "todo",
+        "woow-blueprints",
+        "woow_dmx",
+        "woow_knx",
+        "woow_modbus",
+        "woow_multi_protocol"
+      ]
+    },
+    "normal": {
+      "accessDenied": false,
+      "assetsServed": [
+        [
+          "sidebar-title.js?v=2.0.13",
+          200
+        ],
+        [
+          "sidebar-title.js?v=2.0.13",
+          200
+        ]
+      ],
+      "deniedRenders": true,
+      "deniedUrl": "/climate",
+      "panelCount": 37,
+      "panels": [
+        "5c53de3b_esphome",
+        "77b2833f_pgadmin4",
+        "_my_redirect",
+        "a0d7b954_ssh",
+        "app",
+        "climate",
+        "config",
+        "core_configurator",
+        "core_matter_server",
+        "dashboard-simon",
+        "energy",
+        "erv-v2",
+        "ha-asset-record",
+        "ha-control-panel",
+        "ha-finance",
+        "ha-health-record",
+        "ha-mcp",
+        "ha-note-record",
+        "ha_permission_manager",
+        "hacs",
+        "history",
+        "home",
+        "light",
+        "logbook",
+        "lovelace",
+        "maintenance",
+        "map",
+        "media-browser",
+        "notfound",
+        "profile",
+        "security",
+        "todo",
+        "woow-blueprints",
+        "woow_dmx",
+        "woow_knx",
+        "woow_modbus",
+        "woow_multi_protocol"
+      ]
+    },
+    "unparseable": {
+      "accessDenied": false,
+      "assetsServed": [
+        [
+          "sidebar-title.js?v=2.0.13",
+          200
+        ],
+        [
+          "sidebar-title.js?v=2.0.13",
+          200
+        ]
+      ],
+      "deniedRenders": true,
+      "deniedUrl": "/climate",
+      "panelCount": 37,
+      "panels": [
+        "5c53de3b_esphome",
+        "77b2833f_pgadmin4",
+        "_my_redirect",
+        "a0d7b954_ssh",
+        "app",
+        "climate",
+        "config",
+        "core_configurator",
+        "core_matter_server",
+        "dashboard-simon",
+        "energy",
+        "erv-v2",
+        "ha-asset-record",
+        "ha-control-panel",
+        "ha-finance",
+        "ha-health-record",
+        "ha-mcp",
+        "ha-note-record",
+        "ha_permission_manager",
+        "hacs",
+        "history",
+        "home",
+        "light",
+        "logbook",
+        "lovelace",
+        "maintenance",
+        "map",
+        "media-browser",
+        "notfound",
+        "profile",
+        "security",
+        "todo",
+        "woow-blueprints",
+        "woow_dmx",
+        "woow_knx",
+        "woow_modbus",
+        "woow_multi_protocol"
+      ]
+    }
+  },
+  "nonadmin": {
+    "blackout": {
+      "accessDenied": false,
+      "assetsServed": [],
+      "deniedRenders": false,
+      "deniedUrl": "/notfound/0",
+      "panelCount": 4,
+      "panels": [
+        "energy",
+        "ha-control-panel",
+        "notfound",
+        "profile"
+      ]
+    },
+    "missing": {
+      "accessDenied": false,
+      "assetsServed": [
+        [
+          "sidebar-title.js?v=2.0.13",
+          404
+        ],
+        [
+          "sidebar-title.js?v=2.0.13",
+          404
+        ]
+      ],
+      "deniedRenders": false,
+      "deniedUrl": "/notfound/0",
+      "panelCount": 4,
+      "panels": [
+        "energy",
+        "ha-control-panel",
+        "notfound",
+        "profile"
+      ]
+    },
+    "normal": {
+      "accessDenied": false,
+      "assetsServed": [
+        [
+          "sidebar-title.js?v=2.0.13",
+          200
+        ],
+        [
+          "sidebar-title.js?v=2.0.13",
+          200
+        ]
+      ],
+      "deniedRenders": false,
+      "deniedUrl": "/notfound/0",
+      "panelCount": 4,
+      "panels": [
+        "energy",
+        "ha-control-panel",
+        "notfound",
+        "profile"
+      ]
+    },
+    "unparseable": {
+      "accessDenied": false,
+      "assetsServed": [
+        [
+          "sidebar-title.js?v=2.0.13",
+          200
+        ],
+        [
+          "sidebar-title.js?v=2.0.13",
+          200
+        ]
+      ],
+      "deniedRenders": false,
+      "deniedUrl": "/notfound",
+      "panelCount": 4,
+      "panels": [
+        "energy",
+        "ha-control-panel",
+        "notfound",
+        "profile"
+      ]
+    }
+  }
+}

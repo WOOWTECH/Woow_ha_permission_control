@@ -122,6 +122,22 @@ same pair navigating to a route that does not exist. Two
 unattributed — settling them means rolling the instance back to v2.0.12 and
 re-measuring, which has not been done.
 
+**#12 set its own closing condition, and it was met by measurement.** It asked
+for "a fresh measurement in the shape of `tests/verify_issue_9.py`: break the
+frontend on purpose and show that a non-admin's panel list does not change".
+`tests/verify_issue_12.py` does that, four ways, at the network edge:
+
+| the frontend is | non-admin panels | denied panel |
+|---|---|---|
+| served normally | 4 | `notfound` |
+| `sidebar-title.js` unparseable | 4 | `notfound` |
+| `sidebar-title.js` 404 | 4 | `notfound` |
+| every request to our mount aborted | 4 | `notfound` |
+
+Not one panel moved, and an administrator held 37 throughout. The recorded
+figures for the same class of break were **5 working and 28 broken**, on v2.0.3
+and on v2.0.4. There is no longer a number to move: the browser is not deciding.
+
 **#11 closes with a residue worth naming.** It named the DOM walks in
 `ha_sidebar_filter.js` and `ha_access_denied.js`, and both files are gone. But
 `shadow_dom.js` — the search ADR-0005 points at as the one sanctioned way —
