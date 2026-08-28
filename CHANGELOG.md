@@ -104,6 +104,32 @@ Issues #6 and #11 describe code this release deletes, and go with it. Both were
 some version of "this time the JavaScript did not run correctly" — the failure
 class #16 named and the Panel Gate ends.
 
+**#6 was measured, not just deleted.** Its two mechanisms were about the routing
+anchor going stale on *client-side* navigation, which a full page load cannot
+show. So the anchor's own scenario was driven on v2.0.13: as the non-admin,
+from a permitted panel, four client-side navigations into denied panels
+(`/climate`, `/config`, `/home`, `/ha_permission_manager`) using Home
+Assistant's own `pushState` + `location-changed`. Every one landed on
+`/notfound/0`, and `back()` left the router working. There is no anchor to go
+stale, and the `url_path` crash class the anchor existed to prevent could not be
+reached.
+
+Home Assistant does log two errors of its own during those transitions —
+`Cannot read properties of null (reading '_panel_custom')` and a 404. They are
+not ours: an **administrator**, whom the Panel Gate never touches, produces the
+same pair navigating to a route that does not exist. Two
+`_layoutElement.setConfig is not a function` errors on the non-admin path are
+unattributed — settling them means rolling the instance back to v2.0.12 and
+re-measuring, which has not been done.
+
+**#11 closes with a residue worth naming.** It named the DOM walks in
+`ha_sidebar_filter.js` and `ha_access_denied.js`, and both files are gone. But
+`shadow_dom.js` — the search ADR-0005 points at as the one sanctioned way —
+went with them, and `sidebar-title.js` still spells out a two-step walk
+(`home-assistant` → `shadowRoot` → `home-assistant-main`). The rule now has no
+helper and one remaining violator. The severity is not #11's: a Home Assistant
+rename costs an untranslated sidebar title, not an unfiltered page.
+
 ### Docs
 
 - `CONTEXT.md` loses **Filter**, **Access Denied page**, **Loading overlay** and
