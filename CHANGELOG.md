@@ -2,10 +2,12 @@
 
 ## v2.0.13 — 2026-08-28
 
-Issue #20 calls this the v3.0.0 change, and under semantic versioning it is one:
-the "Changed — on purpose, and visible to users" section below is a breaking
-change. It ships as 2.0.13 by decision, to keep this release one step from
-2.0.12 rather than a major jump. Read the section before upgrading.
+Issue #20 calls this the v3.0.0 change. The deploy verification below says it
+is not one: **nothing a user sees changes in this release.** The behaviour #20
+predicted as its breaking change had already shipped in v2.0.11, with the Panel
+Gate, and was measured on the instance before this deploy as well as after. So
+2.0.13 is not a compromise on a major bump — it is the right number, and the
+measurement is why.
 
 ### Removed
 
@@ -35,17 +37,66 @@ change. It ships as 2.0.13 by decision, to keep this release one step from
   window between load and the Filters deciding. There is no such window: the
   decision was made before the panel map left Home Assistant.
 
-### Changed — on purpose, and visible to users
+### Changed — nothing, as it turns out
 
-- **A non-admin who types the URL of a denied panel now gets Home Assistant's
-  own `notfound`, not an Access Denied page.** The browser cannot tell "denied"
-  from "does not exist", which is the point of deleting the key rather than
-  hiding it. Restoring the message would need a new websocket query; that is a
-  new feature, not a preserved one.
+Issue #20 expected one visible change: that a non-admin typing the URL of a
+denied panel would stop getting the Access Denied page and start getting Home
+Assistant's own `notfound`.
 
-- **A denied panel is absent rather than hidden.** No sidebar row, no route,
-  nothing in `hass.panels` to be un-hidden by a later write. Closed in the
-  matrix now means the panel does not exist for that user.
+**That change had already happened, in v2.0.11.** Measured on 192.168.2.6
+before this deploy, with all three Filters still on disk and still loaded by
+the page: a non-admin opening `/climate` landed on `/notfound/0`, and no
+`ha-access-denied` element was anywhere in the page. The Panel Gate takes the
+panel out of the map, so Home Assistant's router reaches `notfound` before the
+Access Denied Filter has a denied panel to recognise. The Filter had been
+unreachable for two releases, which is a sharper way of saying what #16 said.
+
+What Home Assistant shows there is better than the ticket assumed. It is not a
+bare "page not found": it is HA's own no-access screen — "無法存取 / 沒有存取此
+頁面的權限", "You do not have permission to view this page" — with a button to
+the user's profile settings. The message #20 was willing to lose was already
+being provided by Home Assistant.
+
+So a denied panel is absent rather than hidden — no sidebar row, no route,
+nothing in `hass.panels` to be un-hidden by a later write — and that has been
+true since v2.0.11. This release removes the code that was no longer doing it.
+
+### Deploy verification
+
+Deployed to 192.168.2.6 (HA 2026.7.2) by replacing the integration directory
+outright rather than copying over it, because a deleted module left on disk is
+still served. Measured either side with the new `tests/verify_issue_20.py`, and
+the panel map measured again with `tests/verify_issue_17.py`.
+
+|                              | v2.0.12 | v2.0.13 |
+|------------------------------|---------|---------|
+| six deleted modules, served  | 200 ×6  | **404 ×6** |
+| four kept modules, served    | 200 ×4  | 200 ×4  |
+| assets pulled on every page  | 6       | **1** (`sidebar-title.js`) |
+| admin `hass.panels`          | 37      | 37      |
+| admin sidebar rows drawn     | 29      | 29      |
+| non-admin `hass.panels`      | 4       | 4       |
+| non-admin sidebar rows drawn | 3       | 3       |
+| `ha-access-denied` on page   | absent  | absent  |
+| loading overlay on page      | absent  | absent  |
+| console errors, either identity | 0    | 0       |
+
+Both panels still render, and `sidebar-title.js` still does its one job: the
+non-admin's session is `zh-Hant` and the Control Panel row reads 控制面板,
+checked by codepoint rather than by eye. The non-admin has no
+`ha_permission_manager` key at all, so the loop that used to skip an anchored
+panel now skips a panel that is simply not there — which is the path the
+rewrite left in place.
+
+**The administrator's panel count needs a caveat, and it is the same one
+v2.0.11 recorded.** The first capture after the restart read 32, not 37. The
+five missing were `5c53de3b_esphome`, `77b2833f_pgadmin4`, `a0d7b954_ssh`,
+`core_configurator` and `core_matter_server` — those five exactly, the
+Supervisor's add-on ingress panels, which it re-registers a few minutes after
+Home Assistant starts. Rather than assume that again, this run watched for
+them: all five returned at t+200s, and the table above is the settled capture.
+A verification taken too early would have reported this release deleting five
+of an administrator's panels.
 
 ### Fixed, by deletion
 
@@ -115,6 +166,15 @@ class #16 named and the Panel Gate ends.
   `_9`, `_10` and `_15` — each of which existed to point an instrument at a
   Filter. Their recorded runs stay in `tests/screenshots/` and `tests/reports/`
   as the measurements they were.
+
+- **New: `tests/verify_issue_20.py`.** The offline suites cannot see an
+  instance, and a partial deploy leaves a deleted module on disk where it is
+  still served and still runs. So this asks the instance directly: what status
+  does each deleted module answer, what does a page actually pull out of our
+  mount, is anyone's sidebar different, and is the Access Denied page really
+  gone. It reads `hass.panels` for the sidebar rather than hunting for whichever
+  element Home Assistant draws rows with, and records the drawn rows beside it
+  as corroboration.
 
 - `tests/verify_issue_17.py` survives, reading each identity's sidebar straight
   off `panel_ids` instead of shelling out to the shipped `filterPanels()`.

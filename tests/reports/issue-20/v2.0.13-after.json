@@ -1,0 +1,208 @@
+{
+  "assets": {
+    "filter_lifecycle.js": 404,
+    "ha_access_denied.js": 404,
+    "ha_control_panel.js": 200,
+    "ha_lovelace_filter.js": 404,
+    "ha_permission_manager.js": 200,
+    "ha_sidebar_filter.js": 404,
+    "lit.js": 200,
+    "permission_policy.js": 404,
+    "shadow_dom.js": 404,
+    "sidebar-title.js": 200
+  },
+  "identities": {
+    "admin": {
+      "consoleErrors": [],
+      "denied": {
+        "accessDeniedPresent": false,
+        "bodyText": "",
+        "loadingOverlayPresent": false,
+        "notfoundPresent": false,
+        "panelKeys": [
+          "_my_redirect",
+          "app",
+          "climate",
+          "config",
+          "dashboard-simon",
+          "energy",
+          "erv-v2",
+          "ha-asset-record",
+          "ha-control-panel",
+          "ha-finance",
+          "ha-health-record",
+          "ha-mcp",
+          "ha-note-record",
+          "ha_permission_manager",
+          "hacs",
+          "history",
+          "home",
+          "light",
+          "logbook",
+          "lovelace",
+          "maintenance",
+          "map",
+          "media-browser",
+          "notfound",
+          "profile",
+          "security",
+          "todo",
+          "woow-blueprints",
+          "woow_dmx",
+          "woow_knx",
+          "woow_modbus",
+          "woow_multi_protocol"
+        ],
+        "requestedFromOurMount": [
+          "sidebar-title.js?v=2.0.13"
+        ],
+        "sidebar": [
+          "/config",
+          "/dashboard-simon",
+          "/energy",
+          "/erv-v2",
+          "/ha-asset-record",
+          "/ha-control-panel",
+          "/ha-finance",
+          "/ha-health-record",
+          "/ha-mcp",
+          "/ha-note-record",
+          "/ha_permission_manager",
+          "/hacs",
+          "/history",
+          "/home",
+          "/logbook",
+          "/map",
+          "/media-browser",
+          "/profile",
+          "/todo",
+          "/woow-blueprints",
+          "/woow_dmx",
+          "/woow_knx",
+          "/woow_modbus",
+          "/woow_multi_protocol"
+        ],
+        "url": "/climate"
+      },
+      "home": {
+        "accessDeniedPresent": false,
+        "bodyText": "",
+        "loadingOverlayPresent": false,
+        "notfoundPresent": false,
+        "panelKeys": [
+          "_my_redirect",
+          "app",
+          "climate",
+          "config",
+          "dashboard-simon",
+          "energy",
+          "erv-v2",
+          "ha-asset-record",
+          "ha-control-panel",
+          "ha-finance",
+          "ha-health-record",
+          "ha-mcp",
+          "ha-note-record",
+          "ha_permission_manager",
+          "hacs",
+          "history",
+          "home",
+          "light",
+          "logbook",
+          "lovelace",
+          "maintenance",
+          "map",
+          "media-browser",
+          "notfound",
+          "profile",
+          "security",
+          "todo",
+          "woow-blueprints",
+          "woow_dmx",
+          "woow_knx",
+          "woow_modbus",
+          "woow_multi_protocol"
+        ],
+        "requestedFromOurMount": [
+          "sidebar-title.js?v=2.0.13"
+        ],
+        "sidebar": [
+          "/config",
+          "/dashboard-simon",
+          "/energy",
+          "/erv-v2",
+          "/ha-asset-record",
+          "/ha-control-panel",
+          "/ha-finance",
+          "/ha-health-record",
+          "/ha-mcp",
+          "/ha-note-record",
+          "/ha_permission_manager",
+          "/hacs",
+          "/history",
+          "/home",
+          "/logbook",
+          "/map",
+          "/media-browser",
+          "/profile",
+          "/todo",
+          "/woow-blueprints",
+          "/woow_dmx",
+          "/woow_knx",
+          "/woow_modbus",
+          "/woow_multi_protocol"
+        ],
+        "url": "/home/0"
+      },
+      "identity": "admin"
+    },
+    "nonadmin": {
+      "consoleErrors": [],
+      "denied": {
+        "accessDeniedPresent": false,
+        "bodyText": "",
+        "loadingOverlayPresent": false,
+        "notfoundPresent": true,
+        "panelKeys": [
+          "energy",
+          "ha-control-panel",
+          "notfound",
+          "profile"
+        ],
+        "requestedFromOurMount": [
+          "sidebar-title.js?v=2.0.13"
+        ],
+        "sidebar": [
+          "/energy",
+          "/ha-control-panel",
+          "/profile"
+        ],
+        "url": "/notfound/0"
+      },
+      "home": {
+        "accessDeniedPresent": false,
+        "bodyText": "",
+        "loadingOverlayPresent": false,
+        "notfoundPresent": true,
+        "panelKeys": [
+          "energy",
+          "ha-control-panel",
+          "notfound",
+          "profile"
+        ],
+        "requestedFromOurMount": [
+          "sidebar-title.js?v=2.0.13"
+        ],
+        "sidebar": [
+          "/energy",
+          "/ha-control-panel",
+          "/profile"
+        ],
+        "url": "/notfound/0"
+      },
+      "identity": "nonadmin"
+    }
+  },
+  "label": "v2.0.13-after",
+  "sidebarTitleSays": "v2.0.13"
+}
