@@ -1,10 +1,11 @@
 # One place owns a panel being hidden, and the anchor follows the route
 
 > **Superseded by [ADR-0011](0011-the-panel-decision-moves-into-the-backend.md).**
-> The routing anchor exists because filtering left a route with no panel
+> The routing anchor existed because filtering left a route with no panel
 > behind it. The Panel Gate removes the panel outright and Home Assistant's
-> own router never sees the URL, so there is nothing to anchor. Live until #20
-> lands.
+> own router falls back to `notfound`, so there is nothing to anchor. Deleted
+> in v3.0.0 (#20), along with the anchor awareness `sidebar-title.js` carried
+> for it.
 
 Issue #6, against the routing anchor v2.0.1 added in `822b6ed`. `filterPanels()`
 keeps the panel Home Assistant is routing to in `hass.panels` as a hidden

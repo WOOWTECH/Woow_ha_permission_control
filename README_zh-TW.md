@@ -27,14 +27,14 @@
 
 ## 概述
 
-Home Assistant 的可見性模型對所有人一視同仁：每個使用者都看得到每個面板、每個區域、每個儀表板。這個整合補上「因人而異」的那一層——由管理員逐一決定每位使用者能看到哪些側邊欄面板、區域與標籤，其餘使用者的前端會即時被過濾。
+Home Assistant 的可見性模型對所有人一視同仁：每個使用者都看得到每個面板、每個區域、每個儀表板。這個整合補上「因人而異」的那一層——由管理員逐一決定每位使用者能看到哪些側邊欄面板、區域與標籤，其餘的 Home Assistant 根本不會發出去。
 
 | 問題 | 這個整合怎麼解 |
 |---|---|
 | 所有使用者看到相同的側邊欄 | 逐使用者控制面板可見性，管理工具對一般使用者直接消失 |
 | HA 沒有區域層級的存取控制 | 逐使用者授予或拒絕個別區域 |
 | HA 沒有標籤層級的存取控制 | 逐使用者授予或拒絕個別標籤 |
-| Lovelace 儀表板人人可見 | 儀表板依同一套權限過濾 |
+| Lovelace 儀表板人人可見 | 被關閉的儀表板不會出現在瀏覽器收到的面板清單裡 |
 | 權限散落在多個整合 | 一張管理矩陣：所有使用者 × 所有資源 |
 | 改權限要重啟 | 事件驅動，側邊欄立即更新 |
 
@@ -82,7 +82,7 @@ cp -r Woow_ha_permission_control/custom_components/ha_permission_manager \
 | 等級 | 值 | 行為 |
 |---|---|---|
 | **View** | `1` | 使用者看得到也進得去 |
-| **Closed** | `0` | 從側邊欄隱藏；直接輸入網址會顯示拒絕存取 |
+| **Closed** | `0` | 完全不在面板清單裡——側邊欄沒有這一列，直接輸入網址會落到 Home Assistant 自己的 `notfound` |
 
 | 前綴 | 資源類型 | 範例 |
 |---|---|---|
@@ -131,9 +131,10 @@ data:
 - 全程沒有原生 SQL，資料存取一律經由 Home Assistant
 - 權限儲存為 `.storage` JSON 檔，不會經由 HTTP 對外暴露
 - **Panel Gate** 包住 Home Assistant 自己的 `get_panels`，使用者無 View 權限的面板根本不會送到瀏覽器
-- 三個前端 Filter（側邊欄、Lovelace、拒絕存取）負責隱藏使用者無 View 權限的項目
 
-> Filter 屬於 UI 層防護。它能阻止使用者導覽到無權限的資源，但**不能取代** Home Assistant 本身的身分驗證。
+> 決定發生在 Home Assistant，不在瀏覽器。自 v3.0.0 起，本整合不再送出任何「把頁面上的東西藏起來」
+> 的程式碼——因為頁面上根本沒有那個東西可藏。這仍然**不能取代** Home Assistant 本身的身分驗證，
+> 原因見下方「停用本整合」那段。
 
 > **停用本整合會解除所有限制。** 整合卸載時 Panel Gate 會把 `get_panels` 交還給 Home
 > Assistant，所有使用者立刻看得到所有面板，不需要重啟。這是刻意的：管理員把自己鎖在
@@ -165,8 +166,8 @@ custom_components/ha_permission_manager/
 ├── services.py          14 個服務
 ├── websocket_api.py     8 個 WebSocket 指令
 ├── users.py             使用者查詢
-└── frontend/            面板與 Filter，掛載於
-                         /ha_permission_manager_frontend
+└── frontend/            兩個面板、lit.js 與 sidebar-title.js，
+                         掛載於 /ha_permission_manager_frontend
 CONTEXT.md               術語表——貢獻前請先讀
 docs/adr/                為什麼會長成現在這樣
 docs/services-guide.md   完整服務參考（英 / 中）

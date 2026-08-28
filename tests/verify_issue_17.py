@@ -7,7 +7,7 @@ answer from there. The claim that has to be measured is that **no sidebar gains
 or loses a row**: the payload changes shape, and nothing a user sees changes
 with it.
 
-Reading the Filters is not enough to know that. Issue #16's own record is the
+Reading the code is not enough to know that. Issue #16's own record is the
 reason — its spike expected a non-admin to receive 4 panels and measured 5, and
 the difference was found by measuring, not by reading.
 
@@ -17,10 +17,14 @@ So this script captures, per identity, straight off the WebSocket:
   permissions   permission_manager/get_panel_permissions
   is_admin      as that endpoint reports it
 
-and then computes the sidebar the Filter would build, by handing the pair to
-the real `filterPanels()` out of frontend/permission_policy.js — the function
-that actually decides, not a restatement of it. Two runs either side of a
-deploy are compared on that computed set.
+and reads the sidebar straight off `panel_ids`. Two runs either side of a
+deploy are compared on that set.
+
+Captures taken before v3.0.0 computed the sidebar instead, by handing the pair
+to the frontend's `filterPanels()`, because a browser then received every panel
+and the Filters decided which of them to draw. A `--compare` across that
+boundary therefore holds a computed sidebar against a delivered one, which is
+exactly the claim v3.0.0 makes: they are the same set.
 
 The two questions only a live instance answers:
 
@@ -48,7 +52,6 @@ import argparse
 import asyncio
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -116,8 +119,8 @@ async def _capture(token: str) -> dict:
         await socket.send(json.dumps({"type": "auth", "access_token": token}))
         auth = json.loads(await socket.recv())
         if auth.get("type") != "auth_ok":
-            # An expired non-admin token looks exactly like a broken Filter
-            # from the browser. Say which it is before anything else is read.
+            # An expired non-admin token looks exactly like a sidebar with
+            # nothing in it. Say which it is before anything else is read.
             raise RuntimeError(f"Authentication refused — expired token? {auth}")
 
         async def call(message_id: int, command: dict) -> dict:
@@ -153,23 +156,17 @@ async def _capture(token: str) -> dict:
 
 
 def _sidebars(capture: dict) -> dict:
-    """The sidebar each identity would see, from the real filterPanels().
+    """The sidebar each identity sees: the panels they were sent, and no rule.
 
-    Shelling out to node is the point: the decision has to come from the
-    shipped JavaScript, not from a Python restatement of it that could be
-    wrong in the same direction as the change under test.
+    Nothing is computed here, on purpose. Since v3.0.0 the Panel Gate drops a
+    denied panel before `get_panels` answers, so what a browser receives is
+    what it draws. Restating any rule at this point would measure this
+    script's opinion of the sidebar rather than the instance's answer.
     """
-    script = REPO / "tests" / "sidebar_from_capture.mjs"
-    completed = subprocess.run(
-        ["node", str(script)],
-        input=json.dumps(capture),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    if completed.returncode != 0:
-        sys.exit(f"sidebar_from_capture.mjs failed:\n{completed.stderr}")
-    return json.loads(completed.stdout)
+    return {
+        identity: sorted(data["panel_ids"])
+        for identity, data in capture["identities"].items()
+    }
 
 
 def _report_path(label: str) -> Path:

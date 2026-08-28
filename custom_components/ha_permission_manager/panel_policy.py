@@ -5,7 +5,9 @@ about which panels the Permission Manager offers, reports, or honours lives
 here, so there is exactly one answer to each question and it can be unit
 tested offline. Reading panels off `hass` stays in discovery.py.
 
-The frontend counterpart is frontend/permission_policy.js.
+Until v3.0.0 this module had a frontend counterpart, permission_policy.js, and
+the two had to be kept saying the same thing. The Panel Gate reads its answer
+from here and the browser is told nothing, so this is now the only spelling.
 """
 from __future__ import annotations
 
@@ -59,13 +61,10 @@ ADMIN_ONLY_PANELS = frozenset({"developer-tools", "config", "profile"})
 # own account page, which is no Resource and which the Permission Manager
 # panel has never offered a level on.
 #
-# This and ROUTER_FALLBACK_PANELS below are the Python counterparts of
-# ALWAYS_VISIBLE_PANELS and ROUTER_FALLBACK_PANELS in
-# frontend/permission_policy.js, and they have to hold the same panel ids: two
-# layers that disagree about which panels need no Permission would deny in one
-# place what they allow in the other. Nothing makes them agree at runtime — one
-# is Python and one is JavaScript — so tests/permission_policy.test.mjs reads
-# both files and fails if the lists ever part company.
+# This and ROUTER_FALLBACK_PANELS below had JavaScript twins until v3.0.0, and
+# a test read both files because nothing made them agree at runtime: two layers
+# disagreeing about which panels need no Permission would deny in one place
+# what they allowed in the other. There is one layer now, and this is it.
 ALWAYS_VISIBLE_PANELS = frozenset({"profile"})
 
 # Panels kept for routing only. Home Assistant resolves its default panel as

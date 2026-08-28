@@ -188,8 +188,7 @@ def test_profile_and_notfound_survive_without_a_permission():
 
     `profile` is every user's own account page and is no Resource; `notfound`
     is where Home Assistant's router falls back, and taking it away is what
-    made the router throw. Neither carries a Permission level, and the Python
-    spelling of both has to say what frontend/permission_policy.js says.
+    made the router throw. Neither carries a Permission level.
     """
     panels = {"profile": panel(), "notfound": panel(), "home": panel(component_name="home")}
 

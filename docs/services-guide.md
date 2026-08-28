@@ -759,10 +759,15 @@ curl -s -X POST "${API}/reset_all_permissions" \
 
 ## Events / 事件
 
-All write operations fire a `permission_manager_updated` event on the HA event bus.
-The two Filters injected on every page listen for it and re-apply themselves
-immediately. The Permission Manager panel does not — it updates its own state
-as it writes, and subscribes to nothing.
+All write operations fire a `permission_manager_updated` event on the HA event
+bus. Nothing this integration ships listens for it — the Permission Manager
+panel updates its own state as it writes, and since v3.0.0 there is no frontend
+Filter to re-apply. It is there for your automations, and for whoever is reading
+a trace.
+
+Home Assistant refuses this subscription to a non-administrator (issue #13), so
+every write also fires `panels_updated`, which is the event that carries a
+Permission change to the user it is about. That one has no payload at all.
 
 Until v2.0.9 the two removals did not, despite what this table said (issue #14).
 They do now, and so does every other write path — including the registry

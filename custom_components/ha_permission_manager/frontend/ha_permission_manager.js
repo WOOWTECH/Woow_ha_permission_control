@@ -155,9 +155,6 @@ const I18N = {
       areas: "Controls which areas appear in the Control Panel. The Control Panel is automatically created by Permission Manager and cannot be customized by users.",
       labels: "Controls which labels appear in the Control Panel. The Control Panel is automatically created by Permission Manager and cannot be customized by users.",
     },
-    accessDenied: "Access Denied",
-    accessDeniedMessage: "You don't have permission to view this panel.",
-    returnHome: "Return to Home",
     readOnlyMode: "Read-only mode",
   },
   "zh-Hans": {
@@ -186,9 +183,6 @@ const I18N = {
       areas: "控制哪些区域会显示在控制面板中。控制面板由权限管理器自动创建，用户无法自定义。",
       labels: "控制哪些标签会显示在控制面板中。控制面板由权限管理器自动创建，用户无法自定义。",
     },
-    accessDenied: "访问被拒绝",
-    accessDeniedMessage: "您没有权限查看此面板。",
-    returnHome: "返回首页",
     readOnlyMode: "只读模式",
   },
   "zh-Hant": {
@@ -217,9 +211,6 @@ const I18N = {
       areas: "控制哪些區域會顯示在控制面板中。控制面板由權限管理器自動建立，用戶無法自訂。",
       labels: "控制哪些標籤會顯示在控制面板中。控制面板由權限管理器自動建立，用戶無法自訂。",
     },
-    accessDenied: "存取被拒絕",
-    accessDeniedMessage: "您沒有權限檢視此面板。",
-    returnHome: "返回首頁",
     readOnlyMode: "唯讀模式",
   },
 };

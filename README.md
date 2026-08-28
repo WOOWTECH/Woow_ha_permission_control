@@ -29,15 +29,15 @@
 
 Home Assistant has one visibility model for everyone: every user sees every panel,
 every area and every dashboard. This integration adds a per-user one — an admin
-decides, per user, which sidebar panels, areas and labels are visible, and the
-frontend is filtered live for everyone else.
+decides, per user, which sidebar panels, areas and labels are visible, and
+Home Assistant stops handing the rest out.
 
 | Challenge | What this does |
 |---|---|
 | All users see the same sidebar | Per-user panel visibility — admin tools disappear for regular users |
 | No area-level access control | Grant or deny individual areas per user |
 | No label-level access control | Grant or deny individual labels per user |
-| Lovelace dashboards visible to everyone | Dashboards filtered against the same permissions |
+| Lovelace dashboards visible to everyone | A denied dashboard is not in the panel map a browser receives |
 | Permissions scattered across integrations | One admin matrix: all users x all resources |
 | Changes need a restart | Event-driven — the sidebar updates immediately |
 
@@ -97,7 +97,7 @@ exactly two levels and exactly three kinds of Resource.
 | Level | Value | Behaviour |
 |---|---|---|
 | **View** | `1` | The user can see and open the resource |
-| **Closed** | `0` | Hidden from the sidebar; direct URL access shows Access Denied |
+| **Closed** | `0` | Not in the panel map at all — no sidebar row, and a typed URL is Home Assistant's own `notfound` |
 
 | Prefix | Resource type | Example |
 |---|---|---|
@@ -154,12 +154,11 @@ connection can read its own permissions and nothing else.
 - The permission store is a `.storage` JSON file, never exposed over HTTP
 - The **Panel Gate** wraps Home Assistant's own `get_panels`, so a panel a user
   has no View permission for never reaches their browser at all
-- Three frontend Filters (sidebar, Lovelace, access-denied) hide what a user has
-  no View permission for
 
-> Filters are a UI-layer defence. They stop a user navigating to resources they
-> have no permission for; they are not a substitute for Home Assistant's own
-> authentication.
+> The decision is made in Home Assistant, not in the browser. Since v3.0.0 this
+> integration ships no code that hides anything on a page: there is nothing on
+> the page to hide. That is not a substitute for Home Assistant's own
+> authentication — see the note below on what disabling the integration does.
 
 > **Disabling this integration lifts every restriction.** The Panel Gate hands
 > `get_panels` back to Home Assistant when the integration unloads, and every
@@ -194,8 +193,8 @@ custom_components/ha_permission_manager/
 ├── services.py          the 14 services
 ├── websocket_api.py     the 8 WebSocket commands
 ├── users.py             user lookup
-└── frontend/            panels and Filters, served from
-                         /ha_permission_manager_frontend
+└── frontend/            the two panels, lit.js and sidebar-title.js,
+                         served from /ha_permission_manager_frontend
 CONTEXT.md               the glossary — read this before contributing
 docs/adr/                why things are the way they are
 docs/services-guide.md   the full service reference (EN / 中文)
@@ -211,8 +210,8 @@ rather than working around it.
 The offline suites need no Home Assistant, and CI runs them on every push:
 
 ```bash
-node --test tests/*.test.mjs          # policy decisions, DOM search, asset graph
-python -m pytest tests/test_panel_policy.py
+node --test tests/*.test.mjs          # the frontend asset graph
+python -m pytest tests/test_panel_policy.py tests/test_panel_gate.py tests/test_permission_store.py
 ```
 
 `tests/frontend_assets.test.mjs` is the one to know about when bumping a

@@ -1,5 +1,12 @@
 # An administrator leaves the overlay from above the imports
 
+> **Superseded by [ADR-0011](0011-the-panel-decision-moves-into-the-backend.md).**
+> The overlay existed to hide a page until the Filters had decided about it.
+> The Panel Gate decides before the panel map leaves Home Assistant, so there
+> is no window to cover, and the overlay went with `ha_sidebar_filter.js` in
+> v3.0.0 (#20). Kept because the reasoning — a release path must not depend on
+> code that can fail after it — outlived the overlay.
+
 Issue #15, against the loading overlay as it has shipped since v2.0.4.
 `ha_sidebar_filter.js` puts an opaque, full-viewport, click-swallowing overlay
 over every Home Assistant page, synchronously, above its own imports. The only

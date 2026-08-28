@@ -7,10 +7,12 @@
  * graph spans both languages: `__init__.py` names the entry points, and the JS
  * modules name what those entry points pull in. Busting the entry points alone
  * is not enough — a browser holding a stale copy of a module an entry point
- * imports evaluates neither, and both Filters live inside those modules. That
- * failure is fail-open: nothing filters, and a non-admin sees every panel. So
- * the rule covers the whole graph, and is checked here rather than remembered
- * at each version bump.
+ * imports evaluates neither, so a half-busted graph is a panel that renders
+ * nothing. When issue #9 wrote this rule the modules at stake were the
+ * Filters, and the failure was fail-open: nothing filtered and a non-admin saw
+ * every panel. The Panel Gate ended that class (#20) and the rule outlives it,
+ * because the graph is still two languages wide and still only correct if one
+ * version bump moves all of it.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -200,4 +202,68 @@ test("every frontend module is reached by a registration or another module", () 
         "nothing here can keep busted",
     );
   }
+});
+
+/**
+ * Every `add_extra_js_url()` call in the integration, wherever it is written.
+ *
+ * Recursive and across every Python module, not just `__init__.py`, for the
+ * reason tests/test_permission_store.py walks the package rather than one
+ * file: the registration that matters is the one added somewhere nobody
+ * thought to look. A call whose argument is not a string literal comes back
+ * with a null url rather than being skipped, so "registered from a variable"
+ * fails the test below instead of passing through it.
+ */
+const injectedAssets = () => {
+  const modules = readdirSync(COMPONENT, { recursive: true }).filter((name) =>
+    String(name).endsWith(".py"),
+  );
+
+  return modules.flatMap((name) => {
+    const source = read(COMPONENT, String(name));
+    return [...source.matchAll(/add_extra_js_url\(/g)].map((call) => {
+      // To the end of the call. No frontend URL contains a parenthesis, so the
+      // first one closes it, and a call with no literal before it is exactly
+      // the case this must not skip.
+      const args = source.slice(call.index, source.indexOf(")", call.index));
+      const literal = /f?"([^"\n]*\.js[^"\n]*)"/.exec(args);
+      return {
+        module: String(name),
+        url: literal ? literal[1] : null,
+        text: args.trim(),
+      };
+    });
+  });
+};
+
+/**
+ * The whole of what this integration injects into a page it does not own.
+ *
+ * Until v3.0.0 that was two Filters as well: ~2,400 lines deciding in the
+ * browser what the Panel Gate now decides before the panel map leaves Home
+ * Assistant. The decision has one owner (ADR-0011), so a second registration
+ * here is either a new Filter or an old one coming back — and either way it is
+ * the failure class issue #16 closed, where a user's access depends on
+ * JavaScript that may not run.
+ *
+ * `sidebar-title.js` is not one of those: it retitles two panels this repo
+ * ships, and an untranslated title is a cosmetic loss, not an unfiltered page.
+ */
+test("the only asset injected into every page is the sidebar title translator", () => {
+  const injected = injectedAssets();
+
+  for (const { module, url, text } of injected) {
+    assert.ok(
+      url,
+      `${module} calls add_extra_js_url with no .js literal in it — ` +
+        `${text} — so what lands on every page cannot be read from here`,
+    );
+  }
+
+  assert.deepEqual(
+    injected.map(({ url }) => url.replace("{FRONTEND_URL_BASE}/", "").split("?")[0]),
+    ["sidebar-title.js"],
+    "an asset injected on every page decides something in the browser, and " +
+      "since v3.0.0 nothing about access is decided there",
+  );
 });

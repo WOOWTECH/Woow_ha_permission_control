@@ -56,30 +56,6 @@ all, and it is a global broadcast — every connected client re-reads, not just
 the user concerned.
 _Avoid_: Announcement, panel event, push, notification, panel update
 
-**Filter**:
-A JS module injected on every HA page that hides what a user has no View
-permission for. Three exist: sidebar filter, lovelace filter, access-denied.
-_Avoid_: guard, interceptor, middleware
-
-**Access Denied page**:
-The page the Access Denied Filter puts in place of a panel a user has no View
-permission for. A panel element of its own, with its own header and a sticky
-toolbar: it replaces the content rather than covering it, which is what keeps
-it apart from the Loading overlay below.
-_Avoid_: Access Denied overlay, access denied screen, 403 page
-
-**Loading overlay**:
-An opaque cover over a Home Assistant page, raised before anything is known
-about the user, so that no panel is visible until the Permission store has
-been applied. One owner: the sidebar Filter raises it and the lovelace Filter
-defers to it. It lifts itself for an administrator as soon as Home Assistant
-says who the user is, without waiting for anything a Filter imports (ADR-0009).
-For anyone else only the Filter that raised it lifts it, when that Filter
-finishes — so a Filter that never finishes leaves it up. The Access Denied
-Filter's page is not one of these. Expected to go with the Filters when the
-Panel Gate lands.
-_Avoid_: Access Denied overlay, loading screen, splash, spinner
-
 **Panel Gate**:
 The backend layer that decides which panels leave Home Assistant. It wraps Home
 Assistant's own `get_panels`, drops the panels a non-administrator has no View
@@ -96,13 +72,6 @@ else. A refusal in the shape of an answer. Every way of reaching it except one
 — the Permission store not being loaded yet, which happens once per start and
 corrects itself — is an error in the log and a persistent notification.
 _Avoid_: fallback, empty panels, safe mode, minimal set
-
-**Baseline**:
-The unfiltered panel map a Filter applies filtering to: what Home Assistant
-offered before this integration touched it. Read once on load and re-read after
-a reset, never from a map a Filter produced — a baseline missing a panel cannot
-offer it back when a Permission level is granted (ADR-0007).
-_Avoid_: original panels, the panel list, the unfiltered state
 
 **Dashboard**:
 A Home Assistant Lovelace page, rendered into a `hui-root` element: the default

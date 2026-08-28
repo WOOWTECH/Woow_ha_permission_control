@@ -96,9 +96,10 @@ class Session:
         await socket.send(json.dumps({"type": "auth", "access_token": token}))
         auth = json.loads(await socket.recv())
         if auth.get("type") != "auth_ok":
-            # An expired non-admin token looks exactly like a working filter, or
-            # like an event that never arrived, depending on what is being
-            # measured. Say which it is before anything else is read.
+            # An expired non-admin token looks exactly like a Panel Gate that
+            # denied everything, or like an event that never arrived, depending
+            # on what is being measured. Say which it is before anything else
+            # is read.
             raise RuntimeError(f"{name}: authentication refused — expired token? {auth}")
         return cls(socket, name)
 

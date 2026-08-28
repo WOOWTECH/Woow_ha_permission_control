@@ -3,9 +3,14 @@
 
 Issue #6 asserts it does not — "Home Assistant's `PanelInfo` has no
 `show_in_sidebar` field ... So `title: null` is the whole of the hiding" — and
-`anchorPanel()` in permission_policy.js was written the other way round. Both
-cannot be right, and the answer decides how much of Mechanism A a user could
+the sidebar Filter's `anchorPanel()` was written the other way round. Both
+cannot be right, and the answer decided how much of Mechanism A a user could
 ever have seen.
+
+That Filter is gone as of v3.0.0: a denied panel is not in `hass.panels` to be
+hidden by any field. This probe survives it because what it measures is Home
+Assistant's own behaviour, and the next thing to reach for a panel field will
+want the same answer.
 
 The discriminator is a panel the user *is* permitted, which is therefore in the
 sidebar to begin with. Flip one field at a time on it and watch the row:

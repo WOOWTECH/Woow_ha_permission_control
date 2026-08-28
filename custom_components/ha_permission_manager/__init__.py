@@ -425,14 +425,11 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
             require_admin=False,
         )
 
-    # Register sidebar filter as extra JS (runs on every page)
-    # Use version query param for cache busting
-    add_extra_js_url(hass, f"{FRONTEND_URL_BASE}/ha_sidebar_filter.js?v={PANEL_VERSION}")
-
-    # Register lovelace filter as extra JS (runs on every page)
-    add_extra_js_url(hass, f"{FRONTEND_URL_BASE}/ha_lovelace_filter.js?v={PANEL_VERSION}")
-
-    # Register sidebar title translation JS (runs on every page)
+    # The one asset this integration puts on a page it does not own. It
+    # translates the sidebar titles of the two panels above and decides nothing
+    # about access — the Panel Gate did that before the panel map left Home
+    # Assistant (ADR-0011). Until v3.0.0 two Filters were injected here too.
+    #
     # Busted by PANEL_VERSION like every other asset, rather than by a restart
     # timestamp: one bump has to move the whole graph, or the version query
     # stops being the thing that says which release a browser is running.

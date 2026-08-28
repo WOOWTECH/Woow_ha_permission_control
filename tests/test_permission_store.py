@@ -230,8 +230,8 @@ def test_reset_all_permissions_announces_how_many_users_were_cleared():
 def test_a_write_that_changed_nothing_still_announces():
     """The announcement means "re-read the store", not "something changed".
 
-    Both Filters ignore the payload and re-fetch, so a spurious announcement
-    costs one round trip and no re-render — while a missing one is issue #14.
+    No consumer reads the payload, so a spurious announcement costs whoever is
+    listening one round trip — while a missing one is issue #14.
     Removing a user who holds nothing is the cheapest way to reach that state,
     so it is the one pinned here.
     """
@@ -250,9 +250,9 @@ def test_a_write_that_changed_nothing_still_announces():
 # Source-text invariants
 #
 # The wiring from these functions to `hass.bus` needs a Home Assistant, so it
-# is held here as source text in the idiom tests/routing_anchor.test.mjs
-# established: what cannot be run offline is at least held to being spelt in
-# one place. Each was checked by breaking it.
+# is held here as source text in the idiom tests/frontend_assets.test.mjs
+# uses: what cannot be run offline is at least held to being spelt in one
+# place. Each was checked by breaking it.
 # =============================================================================
 
 
@@ -361,17 +361,21 @@ def test_only_init_writes_the_permission_store():
     assert saves_in == ["__init__.py"]
 
 
-def test_no_consumer_branches_on_the_announcement_payload():
-    """The payload is diagnostic. A consumer re-fetches — ADR-0010.
+def test_no_frontend_module_subscribes_to_the_announcement():
+    """The payload is diagnostic, and since v3.0.0 nothing here even hears it.
 
-    Each Filter subscribes with a handler that reads nothing off the event; if
-    one starts reading `event.data`, the payload has become a contract and the
-    decision needs revisiting rather than quietly widening.
+    ADR-0010 is about consumers re-fetching rather than reading `event.data`.
+    The two that did were the Filters, and deleting them (#20) left the
+    Announcement with no consumer in this repo at all: a live page learns of a
+    Permission change from the Panels broadcast now, which has no payload to
+    read.
+
+    So the check is the stronger one the code allows. A frontend module that
+    subscribes to the Announcement again is a browser being told something
+    about access over an event Home Assistant refuses to a non-administrator
+    (#13) — the shape of every bug issue #16 closed.
     """
-    frontend = COMPONENT / "frontend"
-    for name in ("ha_sidebar_filter.js", "ha_lovelace_filter.js"):
-        source = (frontend / name).read_text(encoding="utf-8")
-        end = source.index('"permission_manager_updated"')
-        handler = source[source.rindex("subscribeEvents(", 0, end):end]
+    for path in sorted((COMPONENT / "frontend").glob("*.js")):
+        source = path.read_text(encoding="utf-8")
 
-        assert "event.data" not in handler, name
+        assert "permission_manager_updated" not in source, path.name

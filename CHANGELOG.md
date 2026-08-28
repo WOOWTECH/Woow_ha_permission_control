@@ -1,5 +1,123 @@
 # Changelog
 
+## v3.0.0 — 2026-08-28
+
+### Removed
+
+- **The frontend Filters are gone.** Issue #20, and the release the whole of
+  #16 was for. 2,463 lines across six modules, plus the two
+  `add_extra_js_url()` registrations that put two of them on every Home
+  Assistant page:
+
+  | file | lines |
+  |---|---|
+  | `frontend/ha_sidebar_filter.js` | 976 |
+  | `frontend/ha_lovelace_filter.js` | 405 |
+  | `frontend/ha_access_denied.js` | 405 |
+  | `frontend/permission_policy.js` | 376 |
+  | `frontend/filter_lifecycle.js` | 211 |
+  | `frontend/shadow_dom.js` | 90 |
+
+  With the Panel Gate deciding, `hass.panels` arrives already correct and there
+  is nothing left to filter. **This integration now injects no code that hides
+  anything on a page, because there is nothing on the page to hide.**
+
+  What stays in `frontend/`: the two panels and `lit.js`, which they import and
+  nothing else. And `sidebar-title.js`, which translates two sidebar titles —
+  with its anchor awareness dropped, because there are no anchors any more.
+
+- **The loading overlay went with them.** It existed to cover a page for the
+  window between load and the Filters deciding. There is no such window: the
+  decision was made before the panel map left Home Assistant.
+
+### Changed — on purpose, and visible to users
+
+- **A non-admin who types the URL of a denied panel now gets Home Assistant's
+  own `notfound`, not an Access Denied page.** The browser cannot tell "denied"
+  from "does not exist", which is the point of deleting the key rather than
+  hiding it. Restoring the message would need a new websocket query; that is a
+  new feature, not a preserved one.
+
+- **A denied panel is absent rather than hidden.** No sidebar row, no route,
+  nothing in `hass.panels` to be un-hidden by a later write. Closed in the
+  matrix now means the panel does not exist for that user.
+
+### Fixed, by deletion
+
+Issues #6 and #11 describe code this release deletes, and go with it. Both were
+some version of "this time the JavaScript did not run correctly" — the failure
+class #16 named and the Panel Gate ends.
+
+### Docs
+
+- `CONTEXT.md` loses **Filter**, **Access Denied page**, **Loading overlay** and
+  **Baseline**. All four describe code that no longer exists, and the glossary
+  describes the code as it is. The Panel Gate keeps "sidebar filter" in its
+  _Avoid_ list, which is the point of an _Avoid_ list.
+
+- ADR-0005, ADR-0007, ADR-0008 and ADR-0009 are dated records of Filters that
+  now exist only in git history. Their supersession notices said "live until
+  #20 lands" and now say what happened. ADR-0009 is the addition: the loading
+  overlay was a Filter's, and ADR-0011's supersession list had not named it.
+  ADR-0006 stays live at its narrower scope — two panels and `lit.js` are still
+  a graph one version bump has to move at once.
+
+- ADR-0010 and ADR-0011 are live, and each carried one sentence this release
+  falsified: that the two Filters are what listens on an administrator's page,
+  and that the Filters still ship. Both get a dated **Update, v3.0.0** note at
+  the top rather than an edited body, because an ADR is a record of what was
+  believed when it was written. ADR-0011's note records the wrinkle in its own
+  prediction: #18 and #20 did *not* ship together, and v2.0.11–v2.0.12 ran a
+  Gate underneath Filters with nothing left to do.
+
+- `docs/services-guide.md` said the two Filters listen for
+  `permission_manager_updated` and re-apply themselves. Nothing listens now;
+  the entry says so, and points at `panels_updated` for what reaches a live
+  page.
+
+- `frontend/ha_permission_manager.js` loses `accessDenied`,
+  `accessDeniedMessage` and `returnHome` in all three languages — the Access
+  Denied page's vocabulary, with no caller since its page was deleted.
+
+### Tests
+
+- **New invariant, in `tests/frontend_assets.test.mjs`:** the only asset
+  injected into every page is `sidebar-title.js`. An asset injected on every
+  page decides something in the browser, and nothing about access is decided
+  there any more — so a second registration is a Filter coming back, whatever
+  it is called. This is the check that the deletion holds, so it is written to
+  be hard to walk around: it reads every Python module in the package rather
+  than `__init__.py` alone, and a call whose argument is not a string literal
+  fails it rather than being skipped. Both evasions were tried against it.
+
+- **`tests/frontend_assets.test.mjs` was already the check that the deletion was
+  complete**: it fails on any frontend module neither registered nor imported.
+  It passes, so nothing was left orphaned.
+
+- Six suites deleted, because what they tested does not exist:
+  `filter_lifecycle`, `permission_policy`, `shadow_dom`, `routing_anchor`,
+  `loading_overlay` and `console_vocabulary`. The last of these pinned the word
+  "overlay" to the Loading overlay (#22) and said in its own comment that it was
+  the thing to delete if the glossary ever gave the word back. It has.
+
+- `tests/test_permission_store.py` no longer asks whether a Filter reads the
+  Announcement's payload; it asks the stronger question the code now allows —
+  whether any frontend module subscribes to the Announcement at all. None does.
+  A live page learns of a Permission change from the Panels broadcast, which has
+  no payload to read (ADR-0010).
+
+- Five live-instance verification scripts deleted — `verify_issue_5`, `_6`,
+  `_9`, `_10` and `_15` — each of which existed to point an instrument at a
+  Filter. Their recorded runs stay in `tests/screenshots/` and `tests/reports/`
+  as the measurements they were.
+
+- `tests/verify_issue_17.py` survives, reading each identity's sidebar straight
+  off `panel_ids` instead of shelling out to the shipped `filterPanels()`.
+  Nothing is computed there on purpose: what the browser receives is what it
+  draws. A `--compare` across the v3.0.0 boundary therefore holds a computed
+  sidebar against a delivered one, which is exactly the claim this release
+  makes — they are the same set.
+
 ## v2.0.12 — 2026-08-28
 
 ### Added

@@ -1,5 +1,18 @@
 # The panel decision moves into the backend, behind one wrapped handler
 
+> **Update, v3.0.0.** All four sub-issues have landed. #20 deleted the Filters,
+> so the two places below that say they still ship — "What this supersedes" and
+> "What this does not answer" — describe the release this document landed with
+> (v2.0.11) and not the code as it stands. The supersession list has been
+> corrected in place, because it is an index rather than a dated claim, and
+> ADR-0009 has been added to it: the loading overlay went with the Filters.
+>
+> The prediction that the two layers must not coexist held, with a wrinkle
+> worth recording: #18 and #20 did **not** ship together. v2.0.11 through
+> v2.0.12 ran a Gate underneath Filters that had nothing left to do, and the
+> baseline contamination ADR-0007 warns of did not bite, because the Gate
+> subtracts from what a Filter would have subtracted from anyway.
+
 Issue #16, implemented in #17 (the decision), #18 (the Gate), #19 (the event)
 and #20 (deleting the Filters). Numbered 0011 rather than the 0009 #16 asked
 for: 0009 and 0010 were taken while #16 was open.
@@ -249,9 +262,10 @@ frontend is a reimplementation in Python.
 
 ## What this supersedes
 
-ADR-0005, ADR-0007 and ADR-0008 are all about the internals of Filters that
-#20 deletes. They are marked superseded by this one and left in place, because
-until #20 lands the Filters still ship and those documents still describe them.
+ADR-0005, ADR-0007, ADR-0008 and ADR-0009 are all about the internals of
+Filters that #20 deleted in v3.0.0 — the last of them about the loading overlay
+`ha_sidebar_filter.js` raised. All four are marked superseded by this one and
+left in place, as the record of how those layers worked and why each existed.
 
 **ADR-0006 stays live.** Its rule — an asset carries its cache buster onto what
 it pulls in — still applies: the two panels still import `lit.js`, and

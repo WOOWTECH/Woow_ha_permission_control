@@ -164,7 +164,7 @@ def main():
             if not token:
                 env = "HA_TOKEN" if identity == "admin" else "HA_TOKEN_NONADMIN"
                 print(f"\n!! SKIPPING '{identity}': {env} is not set.")
-                print("!! The non-admin run is the one that proves the Filters work.")
+                print("!! The non-admin run is the one that proves the Panel Gate works.")
                 exit_code = 2
                 continue
             print(f"\n--- identity: {identity} ---")

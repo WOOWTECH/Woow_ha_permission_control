@@ -1,5 +1,13 @@
 # One write path, one announcement, and the payload means nothing
 
+> **Update, v3.0.0.** The decision holds; one sentence below does not. "What
+> does listen on an administrator's page is the two Filters" was true when this
+> was written and stopped being true when #20 deleted them. Nothing this repo
+> ships subscribes to the announcement now. What reaches a live page is
+> `panels_updated`, added by #19 for the non-administrator this document
+> correctly says the announcement never reached — see
+> [ADR-0011](0011-the-panel-decision-moves-into-the-backend.md).
+
 Issue #14. Five services write the Permission store; three fired
 `permission_manager_updated` and two did not, and the two silent ones were the
 revocations — `remove_user_permissions` and `remove_resource_permissions`. So
