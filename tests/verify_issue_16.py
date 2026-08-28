@@ -59,9 +59,16 @@ import sys
 from contextlib import AsyncExitStack
 from pathlib import Path
 
-import websockets
-
-REPO = Path(__file__).resolve().parent.parent
+from ha_session import (
+    REPO,
+    Session,
+    load_dotenv,
+    admin_token,
+    nonadmin_token,
+    nonadmin_user_id,
+    set_level,
+    stored_level,
+)
 
 # The panel the grant and the revoke are measured on. `home` is what #16's
 # spike used, and it is the one panel a non-admin's sidebar is most obviously
@@ -79,96 +86,22 @@ DEGRADED = {"notfound", "profile"}
 EVENT_TIMEOUT = 6.0
 
 
-def _find_upwards(name: str) -> Path | None:
-    """The nearest `name` at or above the repo root — see verify_issue_17.py."""
-    for directory in [REPO, *REPO.parents]:
-        candidate = directory / name
-        if candidate.exists():
-            return candidate
-    return None
+class Page(Session):
+    """A Session that also waits for events and reads its own report.
 
+    `wait_for_event` is what makes this run's grant and revoke measurable on a
+    connection that never closes; `reported_panels` is #17's other half. Both
+    are particular to this issue, so neither is in the shared helper.
+    """
 
-def _load_dotenv() -> None:
-    env_file = _find_upwards(".env")
-    if env_file is None:
-        return
-    for line in env_file.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-
-
-def _admin_token() -> str:
-    for name in ("HOMEASSISTANT-LONG-LIVED-ACCESS-TOKEN", "HA_TOKEN"):
-        token = os.environ.get(name)
-        if token:
-            return token
-    sys.exit("No admin token. Set HOMEASSISTANT-LONG-LIVED-ACCESS-TOKEN in .env")
-
-
-def _nonadmin_token() -> str:
-    token = os.environ.get("HA_TOKEN_NONADMIN")
-    if token:
-        return token
-    token_file = _find_upwards(".ha_nonadmin_token")
-    if token_file is None:
-        sys.exit("No non-admin token. Set HA_TOKEN_NONADMIN or add .ha_nonadmin_token")
-    return token_file.read_text(encoding="utf-8").strip()
-
-
-def _ws_url() -> str:
-    http_url = os.environ.get("HA_URL", "http://192.168.2.6:8123").rstrip("/")
-    return (
-        http_url.replace("http://", "ws://").replace("https://", "wss://")
-        + "/api/websocket"
-    )
-
-
-class Session:
-    """One authenticated WebSocket, kept open so a live page can be imitated."""
-
-    def __init__(self, socket, name: str):
-        self.socket = socket
-        self.name = name
-        self._id = 0
+    def __init__(self, socket, name):
+        super().__init__(socket, name)
         self.events: list[dict] = []
 
-    @classmethod
-    async def open(cls, stack, token: str, name: str) -> "Session":
-        socket = await stack.enter_async_context(
-            websockets.connect(_ws_url(), max_size=8 * 1024 * 1024)
-        )
-        hello = json.loads(await socket.recv())
-        if hello.get("type") != "auth_required":
-            raise RuntimeError(f"Unexpected greeting: {hello}")
-        await socket.send(json.dumps({"type": "auth", "access_token": token}))
-        auth = json.loads(await socket.recv())
-        if auth.get("type") != "auth_ok":
-            # An expired non-admin token looks exactly like a working Gate from
-            # out here: no panels, and nothing saying why. Say which it is.
-            raise RuntimeError(f"{name}: authentication refused — expired token? {auth}")
-        return cls(socket, name)
-
-    async def call(self, command: dict) -> dict:
-        """One command, with every event that arrives ahead of its result kept."""
-        self._id += 1
-        message_id = self._id
-        await self.socket.send(json.dumps({"id": message_id, **command}))
-        while True:
-            message = json.loads(await self.socket.recv())
-            if message.get("type") == "event":
-                self.events.append(message)
-                continue
-            if message.get("id") != message_id or message.get("type") != "result":
-                continue
-            if not message.get("success"):
-                raise RuntimeError(f"{self.name}: {command['type']} failed: {message.get('error')}")
-            return message["result"]
-
-    async def subscribe(self, event_type: str) -> None:
-        await self.call({"type": "subscribe_events", "event_type": event_type})
+    async def call(self, command: dict, keep_events=None) -> dict:
+        # Events that arrive mid-command are the measurement here, so they are
+        # kept rather than dropped.
+        return await super().call(command, keep_events=self.events)
 
     async def wait_for_event(self, event_type: str, timeout: float = EVENT_TIMEOUT) -> bool:
         """Whether `event_type` arrives on this connection inside `timeout`."""
@@ -192,9 +125,6 @@ class Session:
                 return True
             self.events.append(message)
         return False
-
-    async def panels(self) -> list[str]:
-        return sorted(await self.call({"type": "get_panels"}))
 
     async def reported_panels(self) -> list[str]:
         """The panels this identity is *told* it may see, at a level above Closed.
@@ -226,61 +156,19 @@ async def _set_entry_disabled(admin: Session, entry_id: str, disabled: bool) -> 
     })
 
 
-async def _stored_level(admin: Session, user_id: str) -> int:
-    """The level the store currently holds, so the run can put it back."""
-    data = await admin.call({"type": "permission_manager/get_admin_data"})
-    return data.get("permissions", {}).get(user_id, {}).get(RESOURCE, 0)
-
-
-async def _set_level(admin: Session, user_id: str, level: int) -> None:
-    await admin.call({
-        "type": "permission_manager/set_permission",
-        "user_id": user_id,
-        "resource_id": RESOURCE,
-        "level": level,
-    })
-
-
-async def _deployed_version(admin: Session) -> str | None:
-    """Which build answered, read off our own panel's module URL."""
-    panels = await admin.call({"type": "get_panels"})
-    config = (panels.get("ha_permission_manager") or {}).get("config") or {}
-    module_url = config.get("module_url") or (config.get("_panel_custom") or {}).get(
-        "module_url", ""
-    )
-    return module_url.split("?v=", 1)[1] if "?v=" in module_url else None
-
-
-async def _nonadmin_user_id(admin: Session) -> str:
-    """The non-admin's own user id, which only the administrator can list.
-
-    `get_admin_data` returns every non-owner user; the one this run acts on is
-    the single non-administrator among them. More than one is ambiguous and the
-    run says so rather than guessing which sidebar it is about to change.
-    """
-    data = await admin.call({"type": "permission_manager/get_admin_data"})
-    candidates = [user for user in data.get("users", []) if not user["is_admin"]]
-    if len(candidates) != 1:
-        sys.exit(
-            f"Expected exactly one non-administrator on the target, found "
-            f"{len(candidates)}. Set the account this run should act on by hand."
-        )
-    return candidates[0]["id"]
-
-
 async def measure(label: str, read_only: bool) -> dict:
     async with AsyncExitStack() as stack:
-        admin = await Session.open(stack, _admin_token(), "admin")
+        admin = await Session.open(stack, admin_token(), "admin")
         # The page that stays open for the whole run. Subscribed before
         # anything is written, because the events it must receive are the
         # measurement.
-        page = await Session.open(stack, _nonadmin_token(), "nonadmin")
+        page = await Page.open(stack, nonadmin_token(), "nonadmin")
         await page.subscribe("panels_updated")
 
         capture: dict = {
             "label": label,
             "panel": PANEL,
-            "deployed_version": await _deployed_version(admin),
+            "deployed_version": await admin.deployed_version(),
             "admin_panels": await admin.panels(),
             "nonadmin_panels": await page.panels(),
             "nonadmin_reported": await page.reported_panels(),
@@ -289,23 +177,23 @@ async def measure(label: str, read_only: bool) -> dict:
         if read_only:
             return capture
 
-        user_id = await _nonadmin_user_id(admin)
+        user_id = await nonadmin_user_id(admin)
         entry_id = await _entry_id(admin)
-        restore_level = await _stored_level(admin, user_id)
+        restore_level = await stored_level(admin, user_id, RESOURCE)
         capture["user_id_tail"] = user_id[-6:]
         capture["restore_level"] = restore_level
 
         # 3. a grant, on a page that is already open
-        await _set_level(admin, user_id, 0)
+        await set_level(admin, user_id, RESOURCE, 0)
         await page.wait_for_event("panels_updated")
         capture["nonadmin_before_grant"] = await page.panels()
 
-        await _set_level(admin, user_id, 1)
+        await set_level(admin, user_id, RESOURCE, 1)
         capture["grant_event"] = await page.wait_for_event("panels_updated")
         capture["nonadmin_after_grant"] = await page.panels()
 
         # 4. a revoke, on the same connection
-        await _set_level(admin, user_id, 0)
+        await set_level(admin, user_id, RESOURCE, 0)
         capture["revoke_event"] = await page.wait_for_event("panels_updated")
         capture["nonadmin_after_revoke"] = await page.panels()
 
@@ -320,8 +208,8 @@ async def measure(label: str, read_only: bool) -> dict:
         capture["nonadmin_reenabled"] = await page.panels()
 
         # Put the store back the way it was found.
-        await _set_level(admin, user_id, restore_level)
-        capture["restored_level"] = await _stored_level(admin, user_id)
+        await set_level(admin, user_id, RESOURCE, restore_level)
+        capture["restored_level"] = await stored_level(admin, user_id, RESOURCE)
 
     return capture
 
@@ -459,7 +347,7 @@ def _verdict(failures: list[str]) -> int:
 
 
 def main() -> int:
-    _load_dotenv()
+    load_dotenv()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", required=True, help="name for this run's capture")
     parser.add_argument(

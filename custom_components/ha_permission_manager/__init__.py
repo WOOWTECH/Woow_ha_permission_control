@@ -41,9 +41,11 @@ from .const import (
 from . import permission_store
 from .panel_gate import (
     EVENT_PANELS_UPDATED,
+    async_broadcast_panels_changed,
     async_install_panel_gate,
     async_panel_gate_store_loaded,
     async_restore_panel_gate,
+    async_stop_panel_broadcasts,
 )
 from .permission_store import EVENT_PERMISSION_MANAGER_UPDATED
 from .services import async_register_services, async_unregister_services
@@ -219,6 +221,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Unregister services
     async_unregister_services(hass)
+
+    # Drop any panels broadcast still waiting on the debounce, before the
+    # restore below fires one of its own. Not awaited: see the docstring.
+    async_stop_panel_broadcasts(hass)
 
     # Hand `get_panels` back to Home Assistant. Ahead of the pop below, which
     # throws away the record of what to put back. Every restriction lifts here:
@@ -492,6 +498,14 @@ async def _async_write(
     # Fire event so frontends can react immediately (replaces polling). The
     # payload is diagnostic: every consumer re-fetches — see ADR-0010.
     hass.bus.async_fire(EVENT_PERMISSION_MANAGER_UPDATED, announcement)
+
+    # And the same thing again for everybody Home Assistant will not let hear
+    # that one. A non-administrator's subscription to the announcement above is
+    # refused (#13), and a revocation is about a non-administrator, so the
+    # panels event is the only channel that reaches them. Debounced, and fired
+    # for every write for the reason the announcement is: a decision in front
+    # of it is how two write paths came to be silent (ADR-0010).
+    await async_broadcast_panels_changed(hass)
 
     return announcement
 

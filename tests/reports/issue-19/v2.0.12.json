@@ -1,0 +1,25 @@
+{
+  "area_deletion": [
+    0.0
+  ],
+  "area_gone": true,
+  "area_id": "verify_issue_19_1787903057",
+  "burst": [
+    0.02,
+    1.02
+  ],
+  "burst_seconds": 0.05,
+  "burst_size": 6,
+  "cooldown": 1.0,
+  "deployed_version": "2.0.12",
+  "grant": [
+    0.0
+  ],
+  "label": "v2.0.12",
+  "nonadmin_may_subscribe": true,
+  "restore_level": 0,
+  "restored_level": 0,
+  "revoke": [
+    0.02
+  ]
+}
