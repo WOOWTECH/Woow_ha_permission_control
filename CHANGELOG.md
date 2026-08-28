@@ -52,10 +52,14 @@ and asks the store:
 | payload on a delete               | `{url_path}` | `{url_path}` |
 | a delete carries `action`         | no      | no      |
 | panel gone when the event is read | yes     | yes     |
-| level on the deleted dashboard    | 1       | 0       |
+| level held after an ordinary save | 1       | 1       |
+| level held after the delete       | 1       | 0       |
 
 The first live reproduction of #8, which the ticket says it never had — and the
-same run is the evidence for the signal the fix reads instead.
+same run is the evidence for the signal the fix reads instead. The save row is
+the regression this fix could have introduced and did not: a save and a delete
+arrive as the same payload, so a rule that reads one as the other would take a
+Permission away from a dashboard that is still there.
 
 ## v2.0.13 — 2026-08-28
 
