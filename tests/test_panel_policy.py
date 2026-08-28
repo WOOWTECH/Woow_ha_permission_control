@@ -21,6 +21,7 @@ sys.modules.setdefault("ha_permission_manager_offline", _offline_package)
 
 from ha_permission_manager_offline.panel_policy import (  # noqa: E402
     admin_panel_resources,
+    deleted_dashboard_resource_id,
     unroutable_panel_ids,
     visible_panel_ids,
 )
@@ -338,3 +339,57 @@ def test_a_fully_permitted_non_admin_receives_what_was_offered_and_their_own_pag
     assert visible == offered | {"profile"}
     assert "lovelace" not in visible
     assert visible.isdisjoint({"config", "developer-tools"})
+
+
+# =============================================================================
+# A dashboard Home Assistant no longer has (issue #8)
+# =============================================================================
+
+
+def test_a_dashboard_that_left_the_registry_names_its_resource():
+    """A deleted dashboard is a url_path with no panel behind it.
+
+    Home Assistant removes the panel before it fires `lovelace_updated`, so
+    this is what a deletion looks like by the time the event is read. Nothing
+    else in the payload says so — there is no action to read.
+    """
+    panels = {"home": panel(component_name="home"), "energy": panel()}
+
+    assert deleted_dashboard_resource_id("dashboard-kitchen", panels) == (
+        "panel_dashboard-kitchen"
+    )
+
+
+def test_a_saved_dashboard_keeps_its_permissions():
+    """The same event fires on every save, and a save deletes nothing."""
+    panels = {
+        "home": panel(component_name="home"),
+        "dashboard-kitchen": panel(component_name="lovelace"),
+    }
+
+    assert deleted_dashboard_resource_id("dashboard-kitchen", panels) is None
+
+
+def test_the_default_dashboards_own_config_names_no_resource():
+    """`url_path` is None for the default dashboard, whose panel never leaves.
+
+    Saving or deleting the default dashboard's config fires this event with
+    `url_path: None` — Home Assistant then serves the auto-generated
+    dashboard from the same panel. No panel disappeared, so no row may.
+    """
+    panels = {"home": panel(component_name="home")}
+
+    assert deleted_dashboard_resource_id(None, panels) is None
+    assert deleted_dashboard_resource_id("", panels) is None
+
+
+def test_an_unreadable_panel_registry_deletes_nothing():
+    """The failure mode worth refusing: every save reading as a deletion.
+
+    The registry is read off `hass.data`, and an empty answer means it could
+    not be read rather than that Home Assistant has no panels. Guessing a
+    deletion from it would erase every dashboard's Permissions on an
+    ordinary save, so an unreadable registry decides nothing.
+    """
+    assert deleted_dashboard_resource_id("dashboard-kitchen", {}) is None
+    assert deleted_dashboard_resource_id("dashboard-kitchen", None) is None

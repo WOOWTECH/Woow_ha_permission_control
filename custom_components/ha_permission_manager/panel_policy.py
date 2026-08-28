@@ -156,3 +156,42 @@ def visible_panel_ids(
         if permissions.get(f"{PREFIX_PANEL}{panel_id}", PERM_CLOSED) > PERM_CLOSED:
             visible.add(panel_id)
     return visible
+
+
+def deleted_dashboard_resource_id(
+    url_path: str | None, panels: Mapping[str, Any] | None
+) -> str | None:
+    """The panel Resource a `lovelace_updated` event has left with nothing behind it.
+
+    Home Assistant fires `lovelace_updated` with `{"url_path": ...}` and
+    nothing else — the same payload on a save as on a delete, on every version
+    from 2025.7 through 2026.7 and on dev. There is no `action` key, and until
+    v2.0.14 this integration read one: `action == "delete"` was never true, so
+    no deleted dashboard ever had its Permission rows removed (issue #8).
+
+    What tells a delete from a save is the panel registry. Home Assistant's own
+    `storage_dashboard_changed` calls `frontend.async_remove_panel` before the
+    config it then deletes fires this event, so by the time it is read, a
+    url_path with no panel behind it is a dashboard that is gone.
+
+    Everything short of a certain deletion answers None and keeps the rows:
+
+    * No `url_path` — the default dashboard's own config. Home Assistant goes
+      on serving that dashboard from the same panel, so nothing disappeared.
+    * No readable registry — `panels` is read off `hass.data`, where empty
+      means "could not read it", not "Home Assistant has no panels". Reading a
+      deletion out of that would erase every dashboard's Permissions on an
+      ordinary save.
+
+    :param url_path: the event's `url_path`, as Home Assistant sends it.
+    :param panels: the registered panels, read after Home Assistant has removed
+        the deleted one.
+    :return: the `panel_*` Resource id to forget, or None to keep everything.
+    """
+    if not url_path:
+        return None
+    if not panels:
+        return None
+    if url_path in panels:
+        return None
+    return f"{PREFIX_PANEL}{url_path}"

@@ -39,6 +39,7 @@ from .const import (
     CONTROL_PANEL_ICON,
 )
 from . import permission_store
+from .discovery import get_registered_panels
 from .panel_gate import (
     EVENT_PANELS_UPDATED,
     async_broadcast_panels_changed,
@@ -47,6 +48,7 @@ from .panel_gate import (
     async_restore_panel_gate,
     async_stop_panel_broadcasts,
 )
+from .panel_policy import deleted_dashboard_resource_id
 from .permission_store import EVENT_PERMISSION_MANAGER_UPDATED
 from .services import async_register_services, async_unregister_services
 from .websocket_api import async_register_websocket_api
@@ -308,22 +310,27 @@ async def _async_setup_listeners(hass: HomeAssistant) -> None:
             _LOGGER.exception("Error handling user updated event")
 
     async def _handle_lovelace_updated(event: Event) -> None:
-        """Handle lovelace dashboard changes (create/delete)."""
+        """Forget the Permissions of a dashboard Home Assistant no longer has.
+
+        The event says only which dashboard changed — `{"url_path": ...}`, the
+        same on a save as on a delete. This handler used to read an `action`
+        key that Home Assistant has never sent, so the deletion branch was
+        never taken and every deleted dashboard kept its rows (issue #8).
+        deleted_dashboard_resource_id holds what is read instead, and why.
+        """
         try:
-            action = event.data.get("action")
             url_path = event.data.get("url_path")
+            _LOGGER.debug("Lovelace updated: url_path=%s", url_path)
 
-            _LOGGER.debug("Lovelace updated: action=%s, url_path=%s", action, url_path)
-
-            if not url_path:
-                _LOGGER.debug("No url_path in lovelace_updated event, skipping")
+            resource_id = deleted_dashboard_resource_id(
+                url_path, get_registered_panels(hass)
+            )
+            if resource_id is None:
                 return
 
-            if action == "delete":
-                resource_id = f"{PREFIX_PANEL}{url_path}"
-                # Clean up permissions from Store
-                await async_delete_resource_permissions(hass, resource_id)
-                _LOGGER.info("Removed permissions for deleted dashboard: %s", url_path)
+            # Clean up permissions from Store
+            await async_delete_resource_permissions(hass, resource_id)
+            _LOGGER.info("Removed permissions for deleted dashboard: %s", url_path)
 
         except Exception:
             _LOGGER.exception("Error handling lovelace updated event")
