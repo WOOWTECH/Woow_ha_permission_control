@@ -196,6 +196,20 @@ class Session:
     async def panels(self) -> list[str]:
         return sorted(await self.call({"type": "get_panels"}))
 
+    async def reported_panels(self) -> list[str]:
+        """The panels this identity is *told* it may see, at a level above Closed.
+
+        The other half of #17's one-answer guarantee. Compared against
+        `panels()` it is what catches an instance with no Gate on it, which
+        nothing else in this run can see.
+        """
+        result = await self.call({"type": "permission_manager/get_panel_permissions"})
+        return sorted(
+            panel_id
+            for panel_id, level in result.get("permissions", {}).items()
+            if level > 0
+        )
+
 
 async def _entry_id(admin: Session) -> str:
     entries = await admin.call({"type": "config_entries/get", "domain": "ha_permission_manager"})
@@ -269,6 +283,7 @@ async def measure(label: str, read_only: bool) -> dict:
             "deployed_version": await _deployed_version(admin),
             "admin_panels": await admin.panels(),
             "nonadmin_panels": await page.panels(),
+            "nonadmin_reported": await page.reported_panels(),
             "read_only": read_only,
         }
         if read_only:
@@ -328,8 +343,27 @@ def report(capture: dict, expect_push: bool) -> int:
         failures.append(
             f"the non-admin is missing {sorted(DEGRADED - nonadmin)} — the router has no fallback"
         )
-    if nonadmin >= admin_panels:
-        failures.append("the non-admin receives everything the administrator does: nothing is gated")
+    # The teeth of a read-only run, and #17's guarantee turned into a
+    # measurement: the Gate deciding and get_panel_permissions reporting are
+    # the same function, so for a non-administrator the panels they receive and
+    # the panels they are reported to be permitted must be the same set.
+    #
+    # It is also the only check here that fails on an instance with no Gate at
+    # all — and the first version of this script did not have it, so a v2.0.9
+    # instance handing a non-admin all 28 panels was reported as a PASS. The
+    # comparison against the administrator's list cannot catch that: Home
+    # Assistant filters its own admin-only panels, so a non-admin is never a
+    # superset of an administrator however wide open the instance is.
+    reported = set(capture["nonadmin_reported"])
+    print(f"  non-admin     reported   : {len(reported)}  {sorted(reported)}")
+    if nonadmin != reported:
+        failures.append(
+            f"the non-admin receives {len(nonadmin)} panels but is reported permitted "
+            f"{len(reported)}: receives-but-not-permitted "
+            f"{sorted(nonadmin - reported)}, permitted-but-not-received "
+            f"{sorted(reported - nonadmin)}. Either the Gate is not running or it "
+            f"and get_panel_permissions have parted company."
+        )
 
     if capture["read_only"]:
         print("\n  read-only run: the grant, the revoke and the disable cycle were skipped.")
@@ -416,8 +450,11 @@ def _verdict(failures: list[str]) -> int:
         for failure in failures:
             print(f"    - {failure}")
         return 1
-    print("\n  PASS — a denied panel never reached the browser, and the live "
-          "updates arrived")
+    # Deliberately says only what was checked. It used to claim "and the live
+    # updates arrived", which was false on every run until #19 lands — the
+    # push is measured and printed, and only counted under --expect-push.
+    print("\n  PASS — a denied panel never reached the browser, and what the "
+          "Gate sends is what it reports")
     return 0
 
 
