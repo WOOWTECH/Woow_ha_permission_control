@@ -316,6 +316,36 @@ def test_the_event_is_fired_from_exactly_one_place():
     assert len(announcements) == 1
 
 
+def test_every_write_also_tells_the_browsers():
+    """The second announcement lives beside the first, in the one write path.
+
+    Issue #19. Home Assistant refuses a non-administrator's subscription to
+    `permission_manager_updated` (#13), and a revocation is about a
+    non-administrator — so on its own, the announcement above never reaches the
+    user whose access just changed. `panels_updated` does, and with the Panel
+    Gate deciding, re-running `get_panels` is the whole of what their page has
+    to do about it.
+
+    Held here rather than beside the Gate's own tests because it is the same
+    invariant as the one above, for the same reason: one write path, and it
+    cannot be added to without both announcements. Called once, from
+    `_async_write`, and from nowhere else.
+    """
+    called_in = {
+        name: len(re.findall(r"await async_broadcast_panels_changed\(hass\)", source))
+        for name, source in python_sources().items()
+        if "async_broadcast_panels_changed(hass)" in source
+    }
+
+    assert called_in == {"__init__.py": 1}
+
+    init = python_sources()["__init__.py"]
+    write = init[
+        init.index("async def _async_write("):init.index("async def async_set_permission(")
+    ]
+    assert "await async_broadcast_panels_changed(hass)" in write
+
+
 def test_only_init_writes_the_permission_store():
     """A write path reaches the store through `__init__.py`, or not at all.
 

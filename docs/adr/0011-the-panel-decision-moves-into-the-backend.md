@@ -164,8 +164,9 @@ They look it, and they are not. This is the section #16 asked for.
 | means | the Permission store has been written to, re-read it | the panel list changed, ask for it again |
 | audience | the admin-side consumers | every browser, including the restricted user's |
 | a non-admin may subscribe | **no** — Home Assistant refuses it (#13) | yes — it is in `SUBSCRIBE_ALLOWLIST` |
-| fired from | `_async_write()` in `__init__.py`, once per write (ADR-0010) | `panel_gate.py`, on install, on restore, and when the store loads |
+| fired from | `_async_write()` in `__init__.py`, once per write (ADR-0010) | `panel_gate.py` — on install, on restore, when the store loads, and on every Permission write |
 | payload | diagnostic, never read (ADR-0010) | none |
+| debounced | no, one per write | yes, 1.0 s, leading edge first |
 
 The distinction that matters is the third row. A revocation is *about* a
 non-administrator, and that user's page is the one Home Assistant will not let
@@ -179,7 +180,54 @@ and the Permission Manager panel does not subscribe to it.
 
 `tests/test_permission_store.py` names every `async_fire` in the integration
 rather than counting them, so a module that starts firing something shows up
-whatever it fires.
+whatever it fires. It also holds `_async_write()` to making both announcements,
+in the same way and for the same reason it holds it to making the first.
+
+### Both events go out for every write, and the broadcast is debounced
+
+`async_broadcast_panels_changed()` is called for **every** write, including one
+that touched no panel and one that changed nothing. A decision in front of an
+Announcement is exactly how two of the five write paths came to be silent (#14),
+and the same reasoning holds for the Panels broadcast; it would buy little here
+anyway, because the debounce already bounds the cost.
+
+The debounce is **1.0 s with the leading edge first**, so the write that starts
+a burst reaches an open page at once and everything in the following second
+collapses into one more broadcast. Measured on the instance at 2 broadcasts for
+6 back-to-back writes, arriving at 0.02 s and 1.02 s.
+
+The number is the one `async_save_permissions()` gives `Store.async_delay_save`,
+because #19 asked the two to match. **They are not causally linked**, and it is
+worth saying so because the opposite is the natural assumption: the Gate answers
+from the in-memory map in `hass.data[DOMAIN]`, which `_async_write` has already
+mutated before it broadcasts, and `async_delay_save` delays only the write to
+disk that nothing reads again until a restart. There is no window in which a
+browser could re-read stale rows — and if there were, the leading edge would
+already be inside it, going out a whole cooldown before the save.
+
+What actually decides the number is that it has to be long enough to collapse a
+run of back-to-back service calls and short enough that the trailing broadcast
+still arrives while somebody is looking. The test holding the two values equal
+is a tripwire, so that retuning the save delay is a decision about this one too
+rather than an accident.
+
+`bulk_set_permissions` was already one write rather than one per row (ADR-0010),
+so the burst the debounce is actually for is the one #19 does not name: several
+service calls in quick succession, and the registry listeners, which reach the
+store once per deleted area or label.
+
+### `panels_updated` is a global broadcast
+
+One user's Permission change makes **every** connected client re-run
+`get_panels`, not only the user it concerns. Home Assistant's event bus has no
+way to address one connection, and `subscribePanels` re-runs the command on any
+`panels_updated` whoever fired it. At household scale that is a handful of small
+round trips and the debounce bounds them.
+
+It is written down because it does not look like this from the call site. A
+future reader who takes it for point-to-point will size something wrongly — and
+if this integration ever runs somewhere with a large number of simultaneous
+sessions, this is the line that has to be reopened rather than discovered.
 
 ## Issue #7's "nothing checks", answered
 

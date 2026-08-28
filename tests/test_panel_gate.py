@@ -19,6 +19,7 @@ thing that cannot be stubbed honestly — that `hass.data["websocket_api"]` real
 is the dict every live connection reads its handlers out of — is #16's finding
 and verify_issue_16.py's measurement, not this file's.
 """
+import asyncio
 import re
 import sys
 import types
@@ -74,6 +75,62 @@ _stub("homeassistant.helpers", is_package=True)
 _stub("homeassistant.helpers.area_registry", async_get=lambda hass: None)
 _stub("homeassistant.helpers.label_registry", async_get=lambda hass: None)
 
+
+class FakeDebouncer:
+    """Home Assistant's Debouncer, recorded rather than reimplemented.
+
+    Collapsing a burst on a timer is Home Assistant's job and is tested
+    upstream; reimplementing it here would only prove the reimplementation
+    right. What these tests hold is the wiring — that a Permission write goes
+    through a debouncer rather than straight to the bus, that the whole
+    integration shares one, that its cooldown matches the store's own
+    batching, and that the function it would eventually run fires the event.
+
+    Whether a burst actually collapses is measured on an instance, by
+    tests/verify_issue_19.py.
+
+    **The signatures below are copied, not guessed**, from
+    `homeassistant/helpers/debounce.py` on HA 2026.7.2:
+
+        def __init__(self, hass, logger, *, cooldown, immediate,
+                     function=None, background=False)
+        async def async_call(self) -> None          # a coroutine
+        @callback
+        def async_shutdown(self) -> None            # NOT a coroutine
+        @callback
+        def async_cancel(self) -> None              # NOT a coroutine
+
+    That distinction is here because getting it wrong cost a deploy. This stub
+    first had `async def async_shutdown`, the code under test awaited it, and
+    these tests passed — because the stub had been written to agree with the
+    assumption rather than with Home Assistant. On the instance it raised
+    `TypeError: 'NoneType' object can't be awaited` out of
+    `async_unload_entry`, so the entry never unloaded and disabling the
+    integration silently did nothing. A stub is only worth what its fidelity
+    is worth; check the real signature before adding a method here.
+    """
+
+    instances: list["FakeDebouncer"] = []
+
+    def __init__(self, hass, logger, *, cooldown, immediate, function=None):
+        self.hass = hass
+        self.cooldown = cooldown
+        self.immediate = immediate
+        self.function = function
+        self.calls = 0
+        self.was_shut_down = False
+        FakeDebouncer.instances.append(self)
+
+    async def async_call(self):
+        self.calls += 1
+
+    def async_shutdown(self):
+        # Sync, like the real one. See the docstring above.
+        self.was_shut_down = True
+
+
+_stub("homeassistant.helpers.debounce", Debouncer=FakeDebouncer)
+
 # The same stand-in package tests/test_panel_policy.py uses: it resolves the
 # integration's relative imports without running its __init__.py, which does
 # import Home Assistant for real.
@@ -88,9 +145,12 @@ from ha_permission_manager_offline.panel_gate import (  # noqa: E402
     DATA_STORE_LOADED,
     EVENT_PANELS_UPDATED,
     GET_PANELS,
+    PANELS_UPDATED_COOLDOWN,
+    async_broadcast_panels_changed,
     async_install_panel_gate,
     async_panel_gate_store_loaded,
     async_restore_panel_gate,
+    async_stop_panel_broadcasts,
 )
 
 DOMAIN = "ha_permission_manager"
@@ -195,8 +255,16 @@ def ask(hass, connection):
 @pytest.fixture(autouse=True)
 def _clear_notifications():
     NOTIFICATIONS.clear()
+    FakeDebouncer.instances.clear()
     yield
     NOTIFICATIONS.clear()
+    FakeDebouncer.instances.clear()
+
+
+def run(coroutine):
+    """Run one coroutine. There is no pytest-asyncio here, and none is needed:
+    nothing under test awaits Home Assistant, only the debouncer stub."""
+    return asyncio.run(coroutine)
 
 
 # =============================================================================
@@ -588,6 +656,116 @@ def test_a_registry_that_cannot_be_read_still_gets_an_answer():
 
 
 # =============================================================================
+# Telling every browser a Permission changed (issue #19)
+# =============================================================================
+
+
+def test_a_permission_write_tells_every_browser_to_ask_again():
+    """The only channel that reaches the user a revocation is about.
+
+    Home Assistant refuses a non-administrator's subscription to the Permission
+    store's own announcement (#13). `panels_updated` is in its
+    SUBSCRIBE_ALLOWLIST, so it is the one event that gets through — and with
+    the Gate deciding, re-running `get_panels` is the whole of what a page has
+    to do about a Permission change.
+    """
+    hass = make_hass()
+    async_install_panel_gate(hass)
+    hass.bus.fired.clear()
+
+    run(async_broadcast_panels_changed(hass))
+
+    (debouncer,) = FakeDebouncer.instances
+    assert debouncer.calls == 1
+    # Not fired yet — the debouncer owns when. What it will run is the fire.
+    assert hass.bus.fired == []
+    run(debouncer.function())
+    assert hass.bus.fired == [EVENT_PANELS_UPDATED]
+
+
+def test_a_burst_of_writes_shares_one_debouncer():
+    """Otherwise each write would build its own and none would collapse.
+
+    The case #19 names is `bulk_set_permissions`, which ADR-0010 already made
+    one write rather than one per row. The case it does not name is the one
+    left: several service calls in quick succession, and the registry
+    listeners, which reach the store once per deleted area or label.
+    """
+    hass = make_hass()
+    async_install_panel_gate(hass)
+
+    for _ in range(5):
+        run(async_broadcast_panels_changed(hass))
+
+    assert len(FakeDebouncer.instances) == 1
+    assert FakeDebouncer.instances[0].calls == 5
+
+
+def test_the_first_write_is_not_delayed():
+    """A grant should reach an open page now, not in a second's time. The
+    cooldown is there to collapse what follows, not to hold the first one up."""
+    hass = make_hass()
+    run(async_broadcast_panels_changed(hass))
+
+    assert FakeDebouncer.instances[0].immediate is True
+
+
+def test_the_cooldown_matches_the_permission_stores_own_batching():
+    """One second, because #19 asked the two to match — a tripwire, not a law.
+
+    They are not causally linked. The Gate answers from the in-memory map,
+    which `_async_write` has already mutated before it broadcasts, and
+    `async_delay_save` delays only the write to disk that nothing reads until a
+    restart. So there is no stale-rows window for this to protect, and if there
+    were, the leading edge would already be inside it.
+
+    The test is here so that retuning the save delay is a decision about the
+    debounce too, rather than an accident. If you are reading it because it
+    failed: the two are allowed to differ, but say so on purpose.
+    """
+    delays = re.findall(
+        r"async_delay_save\([^,]+,\s*([0-9.]+)\)", init_source()
+    )
+
+    assert delays == ["1.0"]
+    assert PANELS_UPDATED_COOLDOWN == float(delays[0])
+
+
+def test_the_debouncer_is_shut_down_and_forgotten():
+    """A pending broadcast must not outlive the integration that scheduled it."""
+    hass = make_hass()
+    run(async_broadcast_panels_changed(hass))
+    debouncer = FakeDebouncer.instances[0]
+
+    async_stop_panel_broadcasts(hass)
+
+    assert debouncer.was_shut_down is True
+    # And the next write builds a fresh one rather than calling a dead one.
+    run(async_broadcast_panels_changed(hass))
+    assert len(FakeDebouncer.instances) == 2
+
+
+def test_shutting_down_without_ever_having_written_is_harmless():
+    hass = make_hass()
+
+    async_stop_panel_broadcasts(hass)
+
+    assert FakeDebouncer.instances == []
+
+
+def test_stopping_broadcasts_is_not_a_coroutine():
+    """`Debouncer.async_shutdown` is a `@callback`, so this is too.
+
+    Awaiting it raises out of `async_unload_entry`, and an unload that raises
+    means the entry stays loaded — the Gate stays installed and disabling the
+    integration does nothing. Measured that way on the instance before this
+    test existed, which is why it does.
+    """
+    assert not asyncio.iscoroutinefunction(async_stop_panel_broadcasts)
+    assert "await async_stop_panel_broadcasts" not in init_source()
+
+
+# =============================================================================
 # Handing back
 # =============================================================================
 
@@ -710,6 +888,30 @@ def test_the_store_is_declared_loaded_only_after_it_is_loaded():
 
     assert setup_entry.index("await store.async_load()") < setup_entry.index(
         "async_panel_gate_store_loaded(hass)"
+    )
+
+
+def test_the_broadcasts_are_stopped_before_our_data_is_thrown_away():
+    """The debouncer is held in `hass.data[DOMAIN]`, which unload pops.
+
+    Swap these two and the shutdown silently finds nothing, and a broadcast
+    scheduled a moment before the unload goes out a second after it — telling
+    every browser to re-read a panel list that nothing changed again.
+    """
+    unload = init_section("async def async_unload_entry(")
+
+    assert unload.index("async_stop_panel_broadcasts(hass)") < unload.index(
+        "hass.data.pop(DOMAIN"
+    )
+
+
+def test_the_broadcasts_are_stopped_before_the_gate_hands_back():
+    """Restoring fires `panels_updated` itself, immediately and on purpose. A
+    debounced one landing a second later would be a second, pointless one."""
+    unload = init_section("async def async_unload_entry(")
+
+    assert unload.index("async_stop_panel_broadcasts(hass)") < unload.index(
+        "async_restore_panel_gate(hass)"
     )
 
 
