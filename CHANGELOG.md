@@ -70,11 +70,24 @@
   reason the first one is.
 
 - `tests/verify_issue_19.py` measures what the stub deliberately does not: that
-  a non-admin may subscribe at all, that a grant, a revoke and an **area
-  deletion through the registry listener** each reach a non-admin's own live
-  connection, and that a burst of separate writes collapses into fewer
-  broadcasts than writes. It creates and deletes its own area, and restores the
-  Permission level it changed.
+  a non-admin may subscribe at all, that four of the five write paths each reach
+  a non-admin's own live connection, and that a burst of separate writes
+  collapses into fewer broadcasts than writes — bounded from both sides, since
+  a debouncer that dropped the trailing broadcast would lose the *last* write of
+  a burst, and the last write is as likely as not a revocation.
+
+  The four are `set_permission` (as a grant and as a revoke), a burst,
+  `bulk_set_permissions` called with the row already at the value it is being
+  set to — which also measures ADR-0010's rule that a write changing nothing
+  still announces — and `remove_resource_permissions` reached the way it is
+  reached in anger, through an **area deletion** with no service handler in
+  front of it. The script creates and deletes its own area.
+
+  `remove_user_permissions` and `reset_all_permissions` are deliberately not
+  run: both erase rows, and putting them back would rewrite the store and cost
+  the fingerprint every run of this suite has kept. `verify_issue_14.py` already
+  measures all five paths reaching `_async_write`, and both events are made from
+  that one function.
 
 ### Not in this release
 
