@@ -1,5 +1,87 @@
 # Changelog
 
+## v2.0.12 — 2026-08-28
+
+### Added
+
+- **A Permission change now reaches the user it is about, without a reload.**
+  Issue #19. `_async_write()` — the one place this integration writes the
+  Permission store — fires `panels_updated` as well as the store's own
+  announcement. With the Panel Gate deciding, re-running `get_panels` is the
+  whole of what a live page has to do about a Permission change.
+
+  It has to be this event and not the other one. Home Assistant refuses a
+  non-administrator's `subscribe_events` for `permission_manager_updated`
+  (`unauthorized`, issue #13), and a revocation is *about* a
+  non-administrator — so on its own the announcement never reaches the one
+  person whose access just changed. `panels_updated` is in the WebSocket API's
+  `SUBSCRIBE_ALLOWLIST` and does reach them.
+
+  Fired at the write path rather than relayed off `permission_manager_updated`,
+  which is #19's own requirement: relaying would put the new transport on top of
+  a mechanism that had already been found skipping two of the five write paths
+  (#14), and those two were the revocations.
+
+- **Debounced at 1.0 s, leading edge first.** The write that starts a burst
+  reaches an open page at once; everything in the following second collapses
+  into one more broadcast. Measured on the instance at 2 broadcasts for 6
+  back-to-back writes, at 0.02 s and 1.02 s.
+
+  The number is the one `async_save_permissions()` gives
+  `Store.async_delay_save`, because #19 asked the two to match — but **they are
+  not causally linked**, and the ADR now says so rather than implying a race
+  that does not exist. The Gate answers from the in-memory map, which
+  `_async_write` has already mutated before it broadcasts; `async_delay_save`
+  delays only the disk write, which nothing reads until a restart. The test
+  holding the two values equal is a tripwire, not an invariant.
+
+  `bulk_set_permissions` was already one write rather than one per row
+  (ADR-0010), so the burst this is actually for is the one #19 does not name:
+  several service calls in quick succession, and the registry listeners, which
+  reach the store once per deleted area or label.
+
+### Changed
+
+- **Every write makes both the Announcement and the Panels broadcast**,
+  including one that changed nothing, and
+  including a write to an area or a label that no panel depends on. A decision
+  in front of an announcement is how two write paths came to be silent (#14),
+  and the debounce already bounds what firing unconditionally costs.
+
+- **`panels_updated` is a global broadcast, and ADR-0011 now says so.** One
+  user's Permission change makes every connected client re-run `get_panels`,
+  not only the user it concerns. Home Assistant's event bus cannot address one
+  connection. At household scale that is a handful of small round trips; it is
+  written down because it does not look like this from the call site.
+
+- Unloading the integration drops any broadcast still waiting on the debounce,
+  before the Panel Gate's own restore fires one immediately.
+
+### Tests
+
+- Five cases in `tests/test_panel_gate.py` for the wiring: a write goes through
+  a debouncer rather than straight to the bus, the whole integration shares one,
+  the cooldown matches the store's batching, the leading edge is immediate, and
+  unload shuts it down. Home Assistant's `Debouncer` is stubbed, not
+  reimplemented — a reimplemented timer would only prove itself right.
+
+- One more source-text invariant in `tests/test_permission_store.py`: the second
+  announcement is made from `_async_write` and from nowhere else, for the same
+  reason the first one is.
+
+- `tests/verify_issue_19.py` measures what the stub deliberately does not: that
+  a non-admin may subscribe at all, that a grant, a revoke and an **area
+  deletion through the registry listener** each reach a non-admin's own live
+  connection, and that a burst of separate writes collapses into fewer
+  broadcasts than writes. It creates and deletes its own area, and restores the
+  Permission level it changed.
+
+### Not in this release
+
+- The frontend Filters are still shipped and still running. That is #20, and it
+  ships alongside #18 and this — a version with both layers would let a Filter
+  read a backend-filtered map as its unfiltered Baseline.
+
 ## v2.0.11 — 2026-08-28
 
 ### Added

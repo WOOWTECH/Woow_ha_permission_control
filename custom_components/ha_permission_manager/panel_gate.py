@@ -44,6 +44,7 @@ from homeassistant.components import persistent_notification
 from homeassistant.components.websocket_api import const as websocket_api_const
 from homeassistant.components.websocket_api import messages as websocket_api_messages
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.debounce import Debouncer
 
 from .const import DOMAIN
 from .discovery import get_registered_panels
@@ -72,6 +73,28 @@ FRONTEND_MODULE = "homeassistant.components.frontend"
 DATA_GATE = "panel_gate"
 DATA_STORE_LOADED = "permissions_loaded"
 DATA_FALLBACK_CHECKED = "panel_gate_fallback_checked"
+DATA_DEBOUNCER = "panels_updated_debouncer"
+
+# How long a burst of Permission writes is collapsed over, in seconds.
+#
+# It is the same number `async_save_permissions` gives `Store.async_delay_save`,
+# because #19 asked for that — "debounced to match the store's own batching".
+# **The two are not causally linked**, and it is worth being clear about that
+# because the opposite is easy to assume: the Gate answers `get_panels` from the
+# in-memory map in `hass.data[DOMAIN]`, which `_async_write` has already mutated
+# by the time it calls here, and `async_delay_save` delays only the write to
+# disk, which nothing reads again until a restart. There is no window in which a
+# browser could re-read stale rows, and if there were, `immediate=True` would
+# already be inside it — the leading edge goes out a whole cooldown before the
+# save.
+#
+# What actually decides the number: long enough to collapse a run of
+# back-to-back service calls, short enough that the trailing broadcast still
+# arrives while somebody is looking at the page. One second does both.
+# tests/test_panel_gate.py holds the two values equal as a tripwire, so that
+# retuning the save delay is a decision about this one too rather than an
+# accident.
+PANELS_UPDATED_COOLDOWN = 1.0
 
 NOTIFICATION_ID = "ha_permission_manager_panel_gate"
 NOTIFICATION_TITLE = "Permission Manager: panel filtering"
@@ -211,6 +234,77 @@ def async_panel_gate_store_loaded(hass: HomeAssistant) -> None:
         _check_router_fallback(hass, final=True)
 
     hass.bus.async_fire(EVENT_PANELS_UPDATED)
+
+
+async def async_broadcast_panels_changed(hass: HomeAssistant) -> None:
+    """A Permission changed, so the panels somebody may receive may have too.
+
+    Issue #19. The Permission store's own announcement cannot carry this: Home
+    Assistant refuses a non-administrator's subscription to it (#13), and a
+    revocation is *about* a non-administrator. `panels_updated` is in the
+    WebSocket API's SUBSCRIBE_ALLOWLIST, so it is the one channel that reaches
+    the user whose access just changed. With the Gate deciding, re-running
+    `get_panels` is the whole of what their page has to do about it.
+
+    Called from `_async_write()` in __init__.py — the single place this
+    integration writes the Permission store — and from nowhere else, so a write
+    path cannot be added that forgets it. It is called for **every** write,
+    including one that touched no panel and one that changed nothing. A
+    decision in front of the announcement is exactly how two of the five write
+    paths came to be silent (#14, ADR-0010), and it would buy nothing here: the
+    debounce already bounds the cost.
+
+    **This is a global broadcast.** One user's Permission change makes every
+    connected client re-run `get_panels`, not just the user it concerns. Home
+    Assistant's event bus has no way to address one connection, and at
+    household scale the cost is a handful of small round trips. Nobody should
+    later read this as point-to-point.
+
+    Debounced over PANELS_UPDATED_COOLDOWN, leading edge first: the write that
+    starts a burst reaches an open page immediately, and everything within the
+    following second collapses into one more broadcast. Measured on an instance
+    at 2 broadcasts for 6 back-to-back writes, at 0.02 s and 1.02 s.
+    """
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    debouncer = domain_data.get(DATA_DEBOUNCER)
+    if debouncer is None:
+
+        async def _announce() -> None:
+            hass.bus.async_fire(EVENT_PANELS_UPDATED)
+
+        debouncer = Debouncer(
+            hass,
+            _LOGGER,
+            cooldown=PANELS_UPDATED_COOLDOWN,
+            immediate=True,
+            function=_announce,
+        )
+        domain_data[DATA_DEBOUNCER] = debouncer
+
+    await debouncer.async_call()
+
+
+@callback
+def async_stop_panel_broadcasts(hass: HomeAssistant) -> None:
+    """Drop any broadcast still waiting on the debounce.
+
+    A pending one must not outlive the integration that scheduled it: unload
+    fires `panels_updated` itself, immediately, and a second one arriving a
+    second later would tell every browser to re-read a panel list that nothing
+    had changed again.
+
+    Synchronous, because `Debouncer.async_shutdown` is a `@callback` and not a
+    coroutine — `async_call` is the coroutine, `async_shutdown` and
+    `async_cancel` are not. Awaiting it raises `TypeError: 'NoneType' object
+    can't be awaited` out of `async_unload_entry`, which means the entry never
+    unloads: the Gate stays installed, and disabling the integration silently
+    does nothing. That is the escape hatch this whole design leans on, so the
+    signature is written down here rather than remembered.
+    """
+    domain_data = hass.data.get(DOMAIN, {})
+    debouncer = domain_data.pop(DATA_DEBOUNCER, None)
+    if debouncer is not None:
+        debouncer.async_shutdown()
 
 
 # =============================================================================

@@ -41,8 +41,20 @@ What a write to the Permission store says about itself: the
 written from. It means "the store has been written to, re-read it" and nothing
 more — every consumer re-fetches, none reads the payload, and the payload is
 diagnostic detail for whoever is reading a trace (ADR-0010). Every write path
-makes one, whether or not the store ended up different.
+makes one, whether or not the store ended up different. Only an administrator
+may receive one — Home Assistant refuses the subscription to anyone else (#13),
+which is why the Panels broadcast below exists and is not the same thing.
 _Avoid_: notification, permission change event, delta, the payload as a contract
+
+**Panels broadcast**:
+The `panels_updated` event: "ask for your panels again". Home Assistant's own
+event, not this integration's, and the only one that reaches a
+non-administrator — so it is what carries a Permission change to the user the
+change is about. Fired by the Panel Gate: on install, on restore, when the
+store loads, and once per Permission write, debounced. It carries no payload at
+all, and it is a global broadcast — every connected client re-reads, not just
+the user concerned.
+_Avoid_: Announcement, panel event, push, notification, panel update
 
 **Filter**:
 A JS module injected on every HA page that hides what a user has no View
