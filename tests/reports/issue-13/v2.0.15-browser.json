@@ -1,0 +1,25 @@
+{
+  "after_grant": [
+    "\u5ba2\u5ef3",
+    "\u5eda\u623f"
+  ],
+  "after_revoke": [
+    "\u5ba2\u5ef3"
+  ],
+  "before": [
+    "\u5ba2\u5ef3",
+    "\u5eda\u623f"
+  ],
+  "console_errors": [],
+  "deployed_version": "2.0.15",
+  "grant_reached_the_page": true,
+  "label": "v2.0.15",
+  "panel_found": true,
+  "reloads": 1,
+  "resource": "area_chu_fang",
+  "restore_level": 1,
+  "restored_level": 1,
+  "revoke_reached_the_page": true,
+  "target_area": "\u5eda\u623f",
+  "url": "http://192.168.2.6:8123"
+}
