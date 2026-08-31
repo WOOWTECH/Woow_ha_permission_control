@@ -1,5 +1,89 @@
 # Changelog
 
+## v2.0.15 — 2026-08-31
+
+Issue #13, the half of it that #16 and #19 left behind. The panel list has
+reached a live non-admin page since v2.0.13; the Control Panel's own areas and
+labels never did. An administrator could revoke an area and the user kept the
+card, and the tiles inside it, until they reloaded.
+
+### Fixed
+
+- **The Control Panel now re-reads when Permissions change.** It subscribes to
+  the Panels broadcast — the one event Home Assistant lets a non-administrator
+  hear, and the whole reason #19 fired it — and treats it as what it is: "ask
+  again". On arrival it re-reads `get_permitted_areas` and
+  `get_permitted_labels`. It subscribed to nothing at all before; measured, the
+  page had zero listeners.
+
+  **The per-resource entity caches are dropped on the way.** `_areaEntities`
+  and `_labelEntities` are keyed by id and their loaders return early on a key
+  they already hold, so re-reading the area list alone would refresh which
+  areas are shown and leave every area that stayed offering exactly the
+  entities it was born with — a device moved out of a room, or an entity a
+  user may no longer control, still on the page. That case is measured
+  separately in `tests/verify_issue_13.py`, because a fix that reads the lists
+  and keeps the caches passes every other check in the file.
+
+  **One re-read runs at a time.** Two Permission writes close together are two
+  broadcasts and two overlapping reads, which is exactly what the Panel Gate's
+  debounce produces. Two reads at once interleave their per-area entity
+  requests: the older read writes the entities from before the change, and the
+  newer read then finds the id already there and does not ask for it. The area
+  keeps its old contents until some later, unrelated broadcast lands. A
+  broadcast that arrives during a read now queues a follow-up instead. That
+  also bounds the traffic — `panels_updated` is Home Assistant's own event and
+  arrives for every dashboard added or renamed, not only for a Permission.
+
+  **The page does not blank while it re-reads.** Each list is fetched into a
+  map of its own and put in place in one assignment. Emptying the map first
+  would drop every summary count to zero for a round trip, on every open page,
+  for a change that concerns none of them.
+
+  **A re-read that fails keeps what is on screen.** These reads arrive unasked
+  now. One bad round trip must not take a working page away from somebody and
+  replace it with the error screen; only a read with nothing to keep does that.
+
+  **A revoked area no longer stays on screen.** If the panel is open on the
+  area or label the broadcast just took away, it returns to the list. This was
+  unreachable before, because the lists were read once and never again — and a
+  header that goes on naming a revoked label is this integration displaying
+  exactly what it exists to hide.
+
+  **A refused subscription is attempted once per connection.** Home Assistant
+  hands the panel a new `hass` on every state change, so a retry there is a
+  round trip and a console error per state change for the life of the page. A
+  reconnect brings a new connection object, and that earns a new attempt.
+
+- **An empty Control Panel no longer polls.** The "have I loaded yet?" guard
+  was `_areas.length === 0`, which cannot tell "not read yet" from "read, and
+  permitted nothing". Home Assistant hands the panel a fresh `hass` on every
+  state change, so a user with no areas granted — or no labels, which is most
+  of them — re-asked the backend on every one. Ten state changes made twenty
+  WebSocket calls; they now make none. It is also why a *grant* appeared to
+  work before this release and a revoke never did: the grant was riding on that
+  poll.
+
+  Replaced by an explicit flag, and the first read is the only one that shows
+  "Loading…". The broadcast is global — every open page hears every
+  Permission write on the instance — so blanking on each one would flash a
+  user's panel for a change that had nothing to do with them.
+
+### Testing
+
+- `tests/verify_issue_13.py` drives the shipped `ha_control_panel.js` in a real
+  browser against a fake `hass`, with no Home Assistant running: five admin
+  actions against an already-rendered page, five checks on how the re-read
+  behaves, and the idle-traffic count. Offline, and about a minute.
+
+  Every check was confirmed red against a copy of the panel carrying the one
+  defect it is written for. `VERIFY_FRONTEND` points the run at such a copy; a
+  check that has never gone red proves nothing.
+- `tests/verify_issue_13_live.py` measures the premise the fix rests on against
+  a real instance — that the broadcast reaches a non-admin for *area and label*
+  writes, not just the `panel_*` write #19 measured, and that re-reading on that
+  same connection returns the new answer.
+
 ## v2.0.14 — 2026-08-28
 
 Issue #8. A dashboard could be deleted and its Permission rows stayed in the
