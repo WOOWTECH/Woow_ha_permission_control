@@ -948,3 +948,48 @@ def test_one_module_reaches_into_the_websocket_handler_registry():
     )
 
     assert reaches == ["panel_gate.py"]
+
+
+def test_the_home_assistant_suite_runs_in_a_job_of_its_own():
+    """This file's stubs and that file's Home Assistant cannot share a process.
+
+    Everything above stubs the `homeassistant.*` modules into `sys.modules` at
+    import time, and pytest imports every collected file before it runs
+    anything. So a job that runs this file and
+    tests/test_panel_gate_against_home_assistant.py together hands the second
+    one a `homeassistant` package with no `frontend` in it. That file notices
+    and skips rather than failing — which is the right thing for a developer
+    running `pytest tests/`, and exactly the wrong thing for CI, where a suite
+    that quietly stops running is a suite that stops finding anything.
+
+    This is the tripwire on that: the two are named in different jobs, or this
+    fails.
+    """
+    workflow = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "tests.yml"
+    ).read_text(encoding="utf-8")
+
+    # Everything below `jobs:`, where the job keys really are the only
+    # two-space-indented ones — `on:` has children at that indent too, and
+    # splitting the whole file would read `push:` as a job.
+    jobs_section = workflow.split("\njobs:\n", 1)[1]
+    blocks = re.split(r"^  (?=[\w-]+:$)", jobs_section, flags=re.MULTILINE)[1:]
+    # Whole paths, never substrings: "tests/test_panel_gate.py" is a substring
+    # of the other name.
+    suites = {
+        block.split(":", 1)[0]: set(re.findall(r"tests/\S+\.py", block))
+        for block in blocks
+    }
+
+    stubbed = "tests/test_panel_gate.py"
+    against_home_assistant = "tests/test_panel_gate_against_home_assistant.py"
+
+    runs_stubbed = {job for job, files in suites.items() if stubbed in files}
+    runs_real = {job for job, files in suites.items() if against_home_assistant in files}
+
+    assert runs_stubbed, f"no job runs {stubbed}"
+    assert runs_real, f"no job runs {against_home_assistant}"
+    assert not runs_stubbed & runs_real, (
+        f"{sorted(runs_stubbed & runs_real)} runs both suites in one process, so "
+        f"{against_home_assistant} will skip and the job will pass anyway"
+    )

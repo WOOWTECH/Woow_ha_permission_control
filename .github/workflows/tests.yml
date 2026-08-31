@@ -1,13 +1,39 @@
-# The offline suites: everything that can be decided without a Home Assistant
-# to point at. The live-instance suites (test_services_api.py,
-# playwright_ui_verify.py, the verify_issue_*.py scripts) are deliberately
-# absent — they erase whatever they point at, and there is nothing here to
-# point them at.
+# Three jobs, and the line between them is what each one is allowed to know
+# about Home Assistant.
+#
+# `offline` is everything decidable without a Home Assistant to point at. It
+# stubs the `homeassistant.*` modules in-process, which is why it cannot also
+# run the suite below: pytest imports every collected file before running
+# anything, so a stub installed by one file is already there when the next one
+# imports for real.
+#
+# `home-assistant` installs Home Assistant and drives the Panel Gate against
+# its own `get_panels`, `ActiveConnection` and `Panel` objects — the internals
+# the Gate's correctness is defined by, and the ones a stub can be written to
+# agree with while the real thing has moved. Pinned, so a change to this repo
+# is measured against a fixed Home Assistant.
+#
+# `home-assistant-dev` is the same suite against Home Assistant's `dev` branch,
+# on a schedule and unpinned. It is the only thing here that can say a Home
+# Assistant release has broken the Gate *before* a user upgrades into it; #9
+# and #10 were both found the other way round.
+#
+# The live-instance suites (test_services_api.py, playwright_ui_verify.py, the
+# verify_issue_*.py scripts) are deliberately absent from all three — they
+# erase whatever they point at, and there is nothing here to point them at.
 name: tests
 
 on:
   push:
   pull_request:
+  # `schedule` is a workflow-level trigger, so the weekly run starts all three
+  # jobs and only `home-assistant-dev` has anything new to say. The other two
+  # cost seconds and re-running them proves the week's toolchain still builds.
+  schedule:
+    # Weekly. Only the dev job needs a clock, and a week is short enough to
+    # land inside Home Assistant's beta window rather than after it.
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
 
 jobs:
   offline:
@@ -36,3 +62,62 @@ jobs:
           tests/test_panel_gate.py
           tests/test_permission_store.py
           -q
+
+  home-assistant:
+    # The version is in one place and reaches both the job name and the
+    # install, so bumping the pin is one edit rather than two that can drift.
+    name: Panel Gate against Home Assistant ${{ matrix.home-assistant }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # What this integration was verified against, and what the instance the
+        # verify_issue_*.py scripts point at is running.
+        home-assistant: ["2026.7.2"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Home Assistant 2026.7 needs >=3.14.2; "3.14" resolves to the newest
+          # 3.14.x, which satisfies it.
+          python-version: "3.14"
+
+      - name: Install Home Assistant
+        run: >-
+          python -m pip install --disable-pip-version-check
+          "homeassistant==${{ matrix.home-assistant }}" pytest
+
+      - name: Panel Gate tests
+        # The suite skips itself when Home Assistant is not importable, which
+        # is right for a developer and would be a green job with nothing run
+        # here. This turns that skip into a failure.
+        env:
+          PANEL_GATE_REQUIRES_HOME_ASSISTANT: "1"
+        run: python -m pytest tests/test_panel_gate_against_home_assistant.py -q
+
+  home-assistant-dev:
+    name: Panel Gate against Home Assistant dev
+    # Not on every push: it is a question about Home Assistant, not about this
+    # commit, and the answer changes on Home Assistant's clock rather than ours.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # The one thing still pinned in this job, because `dev` has to be
+          # installed on some interpreter. When Home Assistant raises its floor
+          # past 3.14 the install fails here, which is this job working: bump
+          # it by hand and read what else moved with it.
+          python-version: "3.14"
+
+      - name: Install Home Assistant from dev
+        run: >-
+          python -m pip install --disable-pip-version-check
+          "homeassistant @ git+https://github.com/home-assistant/core@dev" pytest
+
+      - name: Panel Gate tests
+        env:
+          PANEL_GATE_REQUIRES_HOME_ASSISTANT: "1"
+        run: python -m pytest tests/test_panel_gate_against_home_assistant.py -q
