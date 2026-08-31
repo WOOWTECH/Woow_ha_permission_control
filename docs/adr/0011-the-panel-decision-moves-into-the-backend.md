@@ -153,6 +153,13 @@ to a tested state; a coexistence release is a state nobody has tested.
 Home Assistant has no per-user panel hook. The wrap is a bridge; ask for the
 real thing, and delete the bridge when it lands.
 
+The ask is written and lives at
+[`docs/upstream/2026-08-31-per-user-panel-hook.md`](../upstream/2026-08-31-per-user-panel-hook.md):
+one registration point at `get_panels`, given the user and the panel keys Home
+Assistant has already computed, allowed to subtract and never to add. It goes to
+`home-assistant/architecture` as a discussion. #28 tracks posting it, and tracks
+deleting `panel_gate.py` if it ever lands.
+
 ## One decision, one function, and the run that proved it necessary
 
 `panel_policy.visible_panel_ids()` is the whole answer to "which panels may this
