@@ -1,0 +1,157 @@
+{
+  "churn_storms": [
+    {
+      "call_types": [],
+      "calls": 0,
+      "churns": 10,
+      "granted_areas": 1
+    },
+    {
+      "call_types": [],
+      "calls": 0,
+      "churns": 10,
+      "granted_areas": 0
+    }
+  ],
+  "entity_staleness": {
+    "after": [
+      "light.ceiling"
+    ],
+    "before": [
+      "light.ceiling",
+      "light.lamp"
+    ],
+    "expected": [
+      "light.ceiling"
+    ]
+  },
+  "failed_refresh": {
+    "error_screen": false,
+    "expected_names": [
+      "Kitchen",
+      "Garage"
+    ],
+    "names": [
+      "Kitchen",
+      "Garage"
+    ]
+  },
+  "label": "v2.0.15",
+  "no_blanking": {
+    "after": [
+      "light.ceiling",
+      "light.lamp"
+    ],
+    "expected": [
+      "light.ceiling",
+      "light.lamp"
+    ],
+    "midway": [
+      "light.ceiling",
+      "light.lamp"
+    ]
+  },
+  "overlapping_reads": {
+    "after": [
+      "light.ceiling"
+    ],
+    "expected": [
+      "light.ceiling"
+    ]
+  },
+  "page_errors": [],
+  "refused_subscription": {
+    "attempts": 1,
+    "churns": 10
+  },
+  "revoked_while_open": {
+    "expected_view": "home",
+    "view": "home"
+  },
+  "scenarios": [
+    {
+      "calls_after_write": [
+        "area_control/get_permitted_areas",
+        "label_control/get_permitted_labels",
+        "area_control/get_area_entities"
+      ],
+      "expected_names": [
+        "Kitchen"
+      ],
+      "names_after": [
+        "Kitchen"
+      ],
+      "names_before": [
+        "Kitchen",
+        "Garage"
+      ],
+      "reread_areas": true,
+      "reread_labels": true,
+      "scenario": "an area revoked",
+      "subscribers_for_panels_updated": 1,
+      "tag": "cp-area-card"
+    },
+    {
+      "calls_after_write": [
+        "area_control/get_permitted_areas",
+        "label_control/get_permitted_labels",
+        "area_control/get_area_entities"
+      ],
+      "expected_names": [
+        "Kitchen"
+      ],
+      "names_after": [
+        "Kitchen"
+      ],
+      "names_before": [],
+      "reread_areas": true,
+      "reread_labels": true,
+      "scenario": "an area granted",
+      "subscribers_for_panels_updated": 1,
+      "tag": "cp-area-card"
+    },
+    {
+      "calls_after_write": [
+        "area_control/get_permitted_areas",
+        "label_control/get_permitted_labels",
+        "area_control/get_area_entities"
+      ],
+      "expected_names": [
+        "Scullery"
+      ],
+      "names_after": [
+        "Scullery"
+      ],
+      "names_before": [
+        "Kitchen"
+      ],
+      "reread_areas": true,
+      "reread_labels": true,
+      "scenario": "an area renamed",
+      "subscribers_for_panels_updated": 1,
+      "tag": "cp-area-card"
+    },
+    {
+      "calls_after_write": [
+        "area_control/get_permitted_areas",
+        "label_control/get_permitted_labels",
+        "label_control/get_label_entities"
+      ],
+      "expected_names": [
+        "Downstairs"
+      ],
+      "names_after": [
+        "Downstairs"
+      ],
+      "names_before": [
+        "Downstairs",
+        "Upstairs"
+      ],
+      "reread_areas": true,
+      "reread_labels": true,
+      "scenario": "a label revoked",
+      "subscribers_for_panels_updated": 1,
+      "tag": "cp-label-card"
+    }
+  ]
+}

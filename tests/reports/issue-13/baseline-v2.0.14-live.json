@@ -1,0 +1,42 @@
+{
+  "area_gone": true,
+  "area_id": "verify_issue_13_1788161238",
+  "deployed_version": "2.0.14",
+  "label": "baseline-v2.0.14",
+  "label_gone": true,
+  "label_id": "verify_issue_13_1788161238",
+  "steps": [
+    {
+      "action": "grant",
+      "broadcast_reached_nonadmin": true,
+      "kind": "area",
+      "present_after": true,
+      "present_before": false,
+      "should_be_present_after": true
+    },
+    {
+      "action": "revoke",
+      "broadcast_reached_nonadmin": true,
+      "kind": "area",
+      "present_after": false,
+      "present_before": true,
+      "should_be_present_after": false
+    },
+    {
+      "action": "grant",
+      "broadcast_reached_nonadmin": true,
+      "kind": "label",
+      "present_after": true,
+      "present_before": false,
+      "should_be_present_after": true
+    },
+    {
+      "action": "revoke",
+      "broadcast_reached_nonadmin": true,
+      "kind": "label",
+      "present_after": false,
+      "present_before": true,
+      "should_be_present_after": false
+    }
+  ]
+}
