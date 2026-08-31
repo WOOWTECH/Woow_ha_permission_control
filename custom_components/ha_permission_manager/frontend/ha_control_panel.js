@@ -1573,8 +1573,22 @@ class HaControlPanel extends LitElement {
     this._loading = true;
     this._loadError = null;
     this._searchQuery = "";
-    this._areasLoading = false;
-    this._labelsLoading = false;
+    // Whether the first read has been started. This was `_areas.length === 0`,
+    // which cannot tell "not read yet" from "read, and permitted nothing" — so
+    // a user with nothing granted re-read on every single state change.
+    this._loadStarted = false;
+    // Whether the first read has finished. Only that one shows "Loading…".
+    this._firstLoadDone = false;
+    // One re-read at a time, and at most one waiting behind it.
+    this._reloading = false;
+    this._reloadQueued = false;
+    // The Panels broadcast subscription, held so it can be released
+    // (ADR-0007), and a flag for the window where it is still in flight.
+    this._unsubscribePanels = null;
+    this._subscribingPanels = false;
+    // The connection a subscription attempt failed on, so the failure is not
+    // retried against that same connection on every state change.
+    this._subscribeFailedOn = null;
     // Memoization cache
     this._cachedDomainCounts = null;
     this._lastHassStatesRef = null;
@@ -1822,27 +1836,158 @@ class HaControlPanel extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this._subscribeToPanelsBroadcast();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._releasePanelsBroadcast();
   }
 
   updated(changedProperties) {
     super.updated(changedProperties);
     if (changedProperties.has("hass") && this.hass) {
-      if (this._areas.length === 0 && !this._areasLoading) {
-        this._areasLoading = true;
-        this._loadAreas();
-      }
-      if (this._labels.length === 0 && !this._labelsLoading) {
-        this._labelsLoading = true;
-        this._loadLabels();
+      // The connection arrives with the first `hass`, not with the element, so
+      // this is the earliest a subscription can be made. It is a no-op once
+      // one is held.
+      this._subscribeToPanelsBroadcast();
+      if (!this._loadStarted) {
+        this._loadStarted = true;
+        this._reload();
       }
     }
   }
 
-  async _loadAreas() {
-    if (!this.hass) {
-      this._areasLoading = false;
+  /**
+   * Listen for the Panels broadcast.
+   *
+   * Home Assistant refuses a non-administrator's subscription to this
+   * integration's own Announcement (#13), and a non-admin is exactly who this
+   * panel is for. The Panels broadcast is the one that does reach them, so it
+   * is what carries a Permission change to the user the change is about. It
+   * says "ask again" and carries no payload — there is nothing in it to read,
+   * and this re-reads everything rather than trying.
+   *
+   * The event is named here and nowhere else in this file; a frontend module
+   * that names the Announcement instead is a test failure, deliberately
+   * (tests/test_permission_store.py).
+   */
+  async _subscribeToPanelsBroadcast() {
+    const connection = this.hass?.connection;
+    if (this._unsubscribePanels || this._subscribingPanels || !connection) {
       return;
     }
+    // One attempt per connection. `updated()` runs on every state change, so
+    // without this a refused subscription is a round trip and a console error
+    // per state change, for the life of the page. A reconnect gives Home
+    // Assistant a new connection object, and that is worth another attempt.
+    if (this._subscribeFailedOn === connection) {
+      return;
+    }
+    this._subscribingPanels = true;
+    try {
+      const unsubscribe = await connection.subscribeEvents(
+        () => this._reload(),
+        "panels_updated"
+      );
+      // Taken off the page while the subscription was in flight: release it
+      // rather than leave a callback pointing at a panel that is gone.
+      if (this.isConnected) {
+        this._unsubscribePanels = unsubscribe;
+      } else {
+        unsubscribe();
+      }
+    } catch (err) {
+      // A page that cannot subscribe still works; it just stops updating
+      // itself, which is the behaviour this whole change replaces. Said once
+      // per connection rather than once per state change.
+      this._subscribeFailedOn = connection;
+      console.error("Control Panel: could not hear panel updates:", err);
+    }
+    this._subscribingPanels = false;
+  }
+
+  _releasePanelsBroadcast() {
+    if (this._unsubscribePanels) {
+      this._unsubscribePanels();
+      this._unsubscribePanels = null;
+    }
+  }
+
+  /**
+   * Re-read everything this user is permitted to see.
+   *
+   * One re-read runs at a time. A broadcast that lands while a read is in
+   * flight queues a follow-up instead of starting a second read alongside it.
+   * Two reads at once interleave their per-area entity requests, and the older
+   * read can put the entities from before the change into the map the newer
+   * read is about to fill — after which the newer read finds the id already
+   * there and does not ask. Serialising is also what bounds the traffic:
+   * `panels_updated` is Home Assistant's own event, fired for every dashboard
+   * added or renamed and for every integration that registers a panel, so it
+   * arrives for reasons that have nothing to do with a Permission.
+   *
+   * `showLoading` is for the retry button, which has nothing on screen worth
+   * keeping. The broadcast never sets it: that broadcast is global, so any
+   * Permission write on the instance reaches every open page, and an unrelated
+   * user's change must not flash this one back to "Loading…".
+   */
+  _reload({ showLoading = false } = {}) {
+    if (showLoading) {
+      this._firstLoadDone = false;
+      this._loading = true;
+      this._loadError = null;
+    }
+    if (this._reloading) {
+      this._reloadQueued = true;
+      return;
+    }
+    this._reloading = true;
+    this._runReloads();
+  }
+
+  async _runReloads() {
+    do {
+      this._reloadQueued = false;
+      await Promise.all([this._readAreas(), this._readLabels()]);
+    } while (this._reloadQueued);
+    this._reloading = false;
+    this._firstLoadDone = true;
+    this._loading = false;
+    this._leaveRevokedSelection();
+  }
+
+  /**
+   * Leave a detail view for a Resource this user no longer has.
+   *
+   * A revoked area or label could not be on screen before the panel re-read
+   * its own lists, because they were read once and never again. Now they are
+   * re-read, and a header that goes on naming a revoked label is this
+   * integration displaying exactly what it exists to hide.
+   */
+  _leaveRevokedSelection() {
+    if (
+      this._view === "area" &&
+      this._selectedAreaId &&
+      !this._areas.some((area) => area.id === this._selectedAreaId)
+    ) {
+      this._view = "home";
+      this._selectedAreaId = null;
+      this._selectedAreaDomain = null;
+    }
+    if (
+      this._view === "label" &&
+      this._selectedLabel &&
+      !this._labels.some((label) => label.id === this._selectedLabel.id)
+    ) {
+      this._view = "home";
+      this._selectedLabel = null;
+      this._selectedLabelDomain = null;
+    }
+  }
+
+  async _readAreas() {
+    if (!this.hass) return;
     try {
       const result = await this.hass.callWS({
         type: "area_control/get_permitted_areas",
@@ -1852,29 +1997,36 @@ class HaControlPanel extends LitElement {
         throw new Error("Invalid response format from server");
       }
 
-      this._areas = result.areas;
-
-      // Load all area entities in parallel
-      const loadPromises = this._areas.map((area) =>
-        this._loadAreaEntitiesQuiet(area.id)
+      // Filled here and put in place in one assignment. Emptying the map
+      // first and filling it as the answers arrive would drop every summary
+      // count to zero for the length of a round trip — on every broadcast, on
+      // every open page.
+      const entities = {};
+      await Promise.all(
+        result.areas.map(async (area) => {
+          entities[area.id] = await this._readAreaEntities(area.id);
+        })
       );
-      await Promise.all(loadPromises);
 
+      this._areas = result.areas;
+      this._areaEntities = entities;
+      this._loadError = null;
       this.requestUpdate();
     } catch (err) {
       console.error("Failed to load areas:", err);
-      this._loadError = err.message || "Failed to load areas";
-      this._areas = [];
+      // A refresh that fails keeps the last good answer. Only a read with
+      // nothing to keep puts the user on the error screen: this runs on every
+      // broadcast now, and one bad round trip must not take a working page
+      // away from someone who is using it.
+      if (!this._firstLoadDone) {
+        this._loadError = err.message || "Failed to load areas";
+        this._areas = [];
+      }
     }
-    this._areasLoading = false;
-    this._updateLoadingState();
   }
 
-  async _loadLabels() {
-    if (!this.hass) {
-      this._labelsLoading = false;
-      return;
-    }
+  async _readLabels() {
+    if (!this.hass) return;
     try {
       const result = await this.hass.callWS({
         type: "label_control/get_permitted_labels",
@@ -1884,94 +2036,71 @@ class HaControlPanel extends LitElement {
         throw new Error("Invalid response format from server");
       }
 
-      this._labels = result.labels;
-
-      // Load all label entities in parallel
-      const loadPromises = this._labels.map((label) =>
-        this._loadLabelEntitiesQuiet(label.id)
+      const entities = {};
+      await Promise.all(
+        result.labels.map(async (label) => {
+          entities[label.id] = await this._readLabelEntities(label.id);
+        })
       );
-      await Promise.all(loadPromises);
 
+      this._labels = result.labels;
+      this._labelEntities = entities;
       this.requestUpdate();
     } catch (err) {
       console.error("Failed to load labels:", err);
-      if (!this._loadError) {
+      if (!this._firstLoadDone && !this._loadError) {
         this._loadError = err.message || "Failed to load labels";
+        this._labels = [];
       }
-      this._labels = [];
     }
-    this._labelsLoading = false;
-    this._updateLoadingState();
   }
 
-  _updateLoadingState() {
-    this._loading = this._areasLoading || this._labelsLoading;
-  }
-
-  async _loadAreaEntitiesQuiet(areaId) {
-    if (this._areaEntities[areaId]) return;
+  /** One area's entities, returned rather than written. */
+  async _readAreaEntities(areaId) {
     try {
       const result = await this.hass.callWS({
         type: "area_control/get_area_entities",
         area_id: areaId,
       });
-      this._areaEntities = {
-        ...this._areaEntities,
-        [areaId]: result.entities || {},
-      };
+      return result.entities || {};
     } catch (err) {
       console.error("Failed to load area entities:", err);
+      return {};
     }
   }
 
-  async _loadLabelEntitiesQuiet(labelId) {
-    if (this._labelEntities[labelId]) return;
+  /** One label's entities, returned rather than written. */
+  async _readLabelEntities(labelId) {
     try {
       const result = await this.hass.callWS({
         type: "label_control/get_label_entities",
         label_id: labelId,
       });
-      this._labelEntities = {
-        ...this._labelEntities,
-        [labelId]: result.entities || {},
-      };
+      return result.entities || {};
     } catch (err) {
       console.error("Failed to load label entities:", err);
+      return {};
     }
   }
 
+  /** On selecting an area whose entities a re-read has not brought in yet. */
   async _loadAreaEntities(areaId) {
     if (this._areaEntities[areaId]) return;
-    try {
-      const result = await this.hass.callWS({
-        type: "area_control/get_area_entities",
-        area_id: areaId,
-      });
-      this._areaEntities = {
-        ...this._areaEntities,
-        [areaId]: result.entities || {},
-      };
-      this.requestUpdate();
-    } catch (err) {
-      console.error("Failed to load area entities:", err);
-    }
+    this._areaEntities = {
+      ...this._areaEntities,
+      [areaId]: await this._readAreaEntities(areaId),
+    };
+    this.requestUpdate();
   }
 
+  /** On selecting a label whose entities a re-read has not brought in yet. */
   async _loadLabelEntities(labelId) {
     if (this._labelEntities[labelId]) return;
-    try {
-      const result = await this.hass.callWS({
-        type: "label_control/get_label_entities",
-        label_id: labelId,
-      });
-      this._labelEntities = {
-        ...this._labelEntities,
-        [labelId]: result.entities || {},
-      };
-      this.requestUpdate();
-    } catch (err) {
-      console.error("Failed to load label entities:", err);
-    }
+    this._labelEntities = {
+      ...this._labelEntities,
+      [labelId]: await this._readLabelEntities(labelId),
+    };
+    this.requestUpdate();
   }
 
   _getAllEntitiesByDomain() {
@@ -2013,18 +2142,11 @@ class HaControlPanel extends LitElement {
   }
 
   _handleRetry() {
-    this._areasLoading = false;
-    this._labelsLoading = false;
-    this._areas = [];
-    this._labels = [];
-    this._areaEntities = {};
-    this._labelEntities = {};
-    this._loadError = null;
-    this._loading = true;
-    this._areasLoading = true;
-    this._labelsLoading = true;
-    this._loadAreas();
-    this._loadLabels();
+    // The retry button and the Panels broadcast want the same thing: read it
+    // all again. They were two spellings of it until #13 needed the second.
+    // The button is the one that shows "Loading…" — it has an error screen
+    // on show, and nothing worth keeping behind it.
+    this._reload({ showLoading: true });
   }
 
   _handleTabChange(tab) {
