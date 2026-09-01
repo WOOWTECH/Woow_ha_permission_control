@@ -51,9 +51,12 @@ re-runs `get_panels` on it. Measured live: a non-admin's `subscribe_events` for
 `panels_updated` is accepted, and for `permission_manager_updated` is refused
 (`unauthorized`) — which is #13.
 
-**The leak was exactly Home Assistant's own non-admin list.** Live `get_panels`:
-admin 37, non-admin 28 — the same 28 #12 measured. So the fail-open exposed
-everything a stock non-admin would see, and nothing more.
+**The leak was Home Assistant's own non-admin list, and our own Control Panel
+on top.** Live `get_panels` with nothing of ours filtering: admin 37, non-admin
+28 — the same 28 #12 measured. Both counts include the two panels this
+integration registers; with it disabled the same instance answers 35 and 27, and
+27 is what a stock non-admin sees. So the fail-open exposed everything a stock
+non-admin would see, plus the Control Panel, and nothing more.
 
 ## The decision
 
@@ -158,7 +161,9 @@ The ask is written and lives at
 one registration point at `get_panels`, given the user and the panel keys Home
 Assistant has already computed, allowed to subtract and never to add. It goes to
 `home-assistant/architecture` as a discussion. #28 tracks posting it, and tracks
-deleting `panel_gate.py` if it ever lands.
+what happens if it lands: the wrap comes out of `panel_gate.py` and the hook
+goes in its place, while the Panels broadcast and the router fallback check stay
+where they are. The bridge is the takeover, not the file.
 
 ## One decision, one function, and the run that proved it necessary
 

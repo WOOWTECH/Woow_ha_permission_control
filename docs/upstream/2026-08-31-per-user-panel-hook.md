@@ -10,8 +10,8 @@ tracker is closed with a pinned notice saying so.
 **Why the text lives here:** ADR-0011 §8 says the Panel Gate is a bridge and
 that we should ask for the real thing. This is the ask, kept in the repo, so the
 bridge and the request to remove it sit next to each other. Once it is posted,
-put the URL in #28 — which tracks posting this, and tracks deleting
-`panel_gate.py` if the hook ever lands — and in ADR-0011 §8.
+put the URL in #28 — which tracks posting this, and tracks replacing the wrap
+in `panel_gate.py` with the hook if it ever lands — and in ADR-0011 §8.
 
 The text below is what gets posted, verbatim.
 
@@ -45,7 +45,9 @@ It works. We would like to stop doing it the way we currently do it.
 ```python
 @callback
 @websocket_api.websocket_command({"type": "get_panels"})
-def websocket_get_panels(hass, connection, msg) -> None:
+def websocket_get_panels(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
     """Handle get panels command."""
     user_is_admin = connection.user.is_admin
     panels_config = hass.data[DATA_PANELS_CONFIG]
@@ -166,14 +168,21 @@ non-administrator account:
 
 | | administrator | non-administrator |
 |---|---|---|
-| `get_panels`, integration absent | 37 | 28 |
-| `get_panels`, integration running | 37, not one key touched | 4 |
+| `get_panels`, nothing of ours filtering | 37 | 28 |
+| `get_panels`, our filtering running | 37, not one key touched | 4 |
 | a grant, on a page already open | — | `panels_updated`, refetch, panel appears |
 | a revoke, on a page already open | — | `panels_updated`, refetch, panel goes |
-| integration disabled, no restart | 35, less its own two panels | 27 |
+| integration disabled, no restart | 35 | 27 |
 
-That 28 is Home Assistant's own non-administrator list, and it is the shape of
-the failure we started from: when the browser-side approach did not run, 28 is
-exactly what the user got, and nothing anywhere recorded it.
+All four counts come from one instance. The first two rows have our integration
+installed, so the two panels it registers are counted with the rest — one of
+them is visible to a non-administrator. The last row is that same instance with
+the integration disabled, which deregisters both: 35 and 27 are Home Assistant's
+own numbers, and 27 is what a stock non-administrator sees.
+
+That 28 in the first row is the shape of the failure we started from — every
+panel Home Assistant would give that user, and ours on top. When the
+browser-side approach did not run, 28 is exactly what the user got, and nothing
+anywhere recorded it.
 
 Happy to write the PR if the shape is agreeable.
