@@ -1,6 +1,9 @@
 # Upstream request: a per-user hook for `get_panels`
 
-**Status:** drafted 2026-08-31, not yet posted.
+**Status:** drafted 2026-08-31. Corrected, and checked against 2026.7.2,
+on 2026-09-01 — and **not sent**. #28 was closed that day without posting
+it, so nothing tracks sending it. What follows is a record of what we would
+have asked for, not a plan.
 
 **Where it goes:** a discussion in
 [home-assistant/architecture](https://github.com/home-assistant/architecture/discussions/new),
@@ -9,9 +12,11 @@ tracker is closed with a pinned notice saying so.
 
 **Why the text lives here:** ADR-0011 §8 says the Panel Gate is a bridge and
 that we should ask for the real thing. This is the ask, kept in the repo, so the
-bridge and the request to remove it sit next to each other. Once it is posted,
-put the URL in #28 — which tracks posting this, and tracks replacing the wrap
-in `panel_gate.py` with the hook if it ever lands — and in ADR-0011 §8.
+bridge and the request to remove it sit next to each other. It was not
+posted. If that is ever revisited, two things below have to be redone before it
+goes anywhere: the search for an existing discussion upstream, and the check
+that the handler quoted in “The one exit” still matches the Home Assistant the
+reader is on. Both were true on 2026.7.2 and neither stays true by itself.
 
 The text below is what gets posted, verbatim.
 

@@ -159,11 +159,26 @@ real thing, and delete the bridge when it lands.
 The ask is written and lives at
 [`docs/upstream/2026-08-31-per-user-panel-hook.md`](../upstream/2026-08-31-per-user-panel-hook.md):
 one registration point at `get_panels`, given the user and the panel keys Home
-Assistant has already computed, allowed to subtract and never to add. It goes to
-`home-assistant/architecture` as a discussion. #28 tracks posting it, and tracks
-what happens if it lands: the wrap comes out of `panel_gate.py` and the hook
-goes in its place, while the Panels broadcast and the router fallback check stay
-where they are. The bridge is the takeover, not the file.
+Assistant has already computed, allowed to subtract and never to add. It was to go to
+`home-assistant/architecture` as a discussion.
+
+**It was never sent.** 2026-09-01: #28 closed without posting it, and nothing
+tracks sending it now. The draft stays where it is — corrected, and checked
+line for line against 2026.7.2 — as the record of what we would have asked for.
+
+So this section's second half did not happen, and the consequence belongs here
+rather than only in the closed issue: **the wrap is not a bridge, it is the
+mechanism.** Everything the draft says about the technique still holds against
+us. `async_register_command` overwrites in silence, so a second integration
+taking over `get_panels` wins and is never reported, and the users of whichever
+one registered first quietly receive an unfiltered list. Our install-time checks
+refuse to wrap a handler that is not `homeassistant.components.frontend`, which
+catches us arriving second. Nothing catches us being arrived upon. That is the
+standing risk of not asking, and it is now permanent rather than temporary.
+
+Anyone reviving this starts by redoing two things the draft cannot keep fresh
+on its own: the search for an existing upstream discussion, and the check that
+the handler quoted in it still matches the version they are on.
 
 ## One decision, one function, and the run that proved it necessary
 
